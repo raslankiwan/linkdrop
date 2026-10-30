@@ -1,0 +1,59 @@
+.env.example
+  s_3c3574c8e604d0::t_d24087a470fc8b 1-3
+.gitignore
+  s_3c3574c8e604d0::t_378f120137e3bd 1-9
+.vercelignore
+  s_3c3574c8e604d0::t_479696e141e89b 1-9
+README.md
+  s_3c3574c8e604d0::t_ebc1db19a6ab5b 1-40
+README.txt
+  s_3c3574c8e604d0::t_34bc5d0b1e5aca 1-28
+Start.command
+  s_3c3574c8e604d0::t_76bb131237e163 1-15
+api/cleanup.js
+  s_3c3574c8e604d0::t_6ddde78fad1d60 1-15
+api/cloud.py
+  s_3c3574c8e604d0::t_fb058894df95a8 1-76
+api/file.js
+  s_3c3574c8e604d0::t_5b51029d51ae13 1-19
+index.html
+  s_3c3574c8e604d0::t_a6bcf20567e761 1-12
+lib/engine.py
+  s_3c3574c8e604d0::t_a3be906e47e5b5 1-92
+package-lock.json
+  s_3c3574c8e604d0::t_e6179be802405c 1-367
+package.json
+  s_3c3574c8e604d0::t_b94e7c8b1c16cc 1-20
+public/app.js
+  s_3c3574c8e604d0::t_62ccc75be08543 1-34
+public/index.html
+  s_3c3574c8e604d0::t_b6be05c8418346 1-4
+pyproject.toml
+  s_3c3574c8e604d0::t_0657e8b930c856 1-5
+requirements.txt
+  s_3c3574c8e604d0::t_4bcf3741eb27b5 1-4
+server.py
+  s_3c3574c8e604d0::t_45e04cb2dacc92 1-128
+tests/file.test.cjs
+  s_3c3574c8e604d0::t_c02f9f0f7fe76d 1-8
+tests/history.test.cjs
+  s_3c3574c8e604d0::t_2fd3f07590ae38 1-15
+vercel.json
+  s_3c3574c8e604d0::t_fa91bd1fef2d95 1-43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b3723f2749f5cbdb5df9a32ee250e862ba297c5e",
+  "prompts": {},
+  "sessions": {
+    "s_3c3574c8e604d0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18e64-5597-76c0-b65f-6edb4e225d19",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "raslan <raslankiwan@gmail.com>"
+    }
+  }
+}
