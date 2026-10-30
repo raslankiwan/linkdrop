@@ -1,5 +1,7 @@
 # LinkDrop
 
+**Live website:** [linkdrop-chi.vercel.app](https://linkdrop-chi.vercel.app)
+
 Video and audio downloader with a Mac-local app and a responsive Vercel web app.
 
 ## Hosted web app
