@@ -4,14 +4,15 @@
   "description": "LinkDrop: local and Vercel-hosted video and audio downloader",
   "scripts": {
     "test": "node --test tests/*.test.cjs",
-    "build": "node -e \"console.log('Static frontend ready')\""
+    "build": "node scripts/build.cjs"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@vercel/blob": "^2.8.2"
+    "@vercel/blob": "^2.8.2",
+    "node": "^24.19.0"
   },
   "private": true,
   "overrides": {

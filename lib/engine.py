@@ -3,7 +3,7 @@ import ipaddress, json, os, socket, sys, time
 from pathlib import Path
 from urllib.parse import urlparse
 import imageio_ffmpeg
-import nodejs_wheel
+import shutil
 import yt_dlp
 
 MAX_BYTES = 200 * 1024 * 1024
@@ -34,7 +34,7 @@ class QuietLogger:
 def options():
     return {'quiet':True,'no_warnings':True,'noprogress':True,'logger':QuietLogger(), 'noplaylist':True,
             'socket_timeout':15,'retries':1,'fragment_retries':1,'cachedir':False,
-            'ffmpeg_location':imageio_ffmpeg.get_ffmpeg_exe(), 'js_runtimes':{'node':{'path':str(Path(nodejs_wheel.__file__).parent/'bin'/'node')}}, 'max_filesize':MAX_BYTES,
+            'ffmpeg_location':imageio_ffmpeg.get_ffmpeg_exe(), 'js_runtimes':{'node':{'path':str(Path(__file__).with_name('runtime-node')) if Path(__file__).with_name('runtime-node').exists() else (shutil.which('node') or 'node')}}, 'max_filesize':MAX_BYTES,
             'extractor_args':{'generic':{'impersonate':['']}}}
 
 def emit(event):

@@ -7,3 +7,4 @@ downloads/
 __pycache__/
 *.pyc
 .DS_Store
+lib/runtime-node
