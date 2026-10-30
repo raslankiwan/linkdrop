@@ -1,5 +1,6 @@
 const fs=require('node:fs');
+const zlib=require('node:zlib');
 const binary=require.resolve('node/bin/node');
-fs.copyFileSync(binary,'lib/runtime-node');
-fs.chmodSync('lib/runtime-node',0o755);
-console.log('Prepared static frontend and standalone JavaScript runtime.');
+fs.writeFileSync('lib/runtime-node.gz',zlib.gzipSync(fs.readFileSync(binary),{level:9}));
+if(fs.existsSync('lib/runtime-node'))fs.unlinkSync('lib/runtime-node');
+console.log('Prepared static frontend and compressed JavaScript runtime.');
