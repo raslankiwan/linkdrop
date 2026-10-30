@@ -25,7 +25,6 @@ class BackendTests(unittest.TestCase):
         with patch('socket.getaddrinfo',return_value=[(2,1,6,'',('10.0.0.1',80))]):
             with self.assertRaises(ValueError):public_url('http://example.com/x')
 
-if __name__=='__main__':unittest.main()
 
 class YouTubeRecoveryTests(unittest.TestCase):
     def test_youtube_verification_has_recovery_code(self):
@@ -41,3 +40,17 @@ class YouTubeRecoveryTests(unittest.TestCase):
         self.assertNotIn('cookiesfrombrowser',server.options())
         self.assertEqual(server.options('chrome')['cookiesfrombrowser'],('chrome',))
         with self.assertRaises(ValueError):server.options('/arbitrary/path')
+
+class BlobStorageTests(unittest.TestCase):
+    def test_unicode_titles_do_not_enter_blob_keys(self):
+        from lib.storage import storage_path
+        for filename in ['لا تنسى الإعجاب 🌹💝.mp4','595K views Â· Ù„Ø§ ðŸŒ¹.mp4','日本語 # ? %.webm','audio.M4A']:
+            key=storage_path(filename)
+            self.assertTrue(key.isascii())
+            self.assertRegex(key,r'^downloads/[a-f0-9]{32}/media\.[a-z0-9]+$')
+            self.assertTrue(key.endswith(Path(filename).suffix.lower()))
+    def test_storage_keys_are_unique_even_for_the_same_title(self):
+        from lib.storage import storage_path
+        self.assertNotEqual(storage_path('same.mp4'),storage_path('same.mp4'))
+
+if __name__=='__main__':unittest.main()

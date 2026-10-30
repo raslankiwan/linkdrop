@@ -1,10 +1,11 @@
-import base64, hashlib, hmac, json, mimetypes, os, signal, subprocess, sys, tempfile, threading, time, uuid
+import base64, hashlib, hmac, json, mimetypes, os, signal, subprocess, sys, tempfile, threading, time
 from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from vercel.blob import sync as blob
 from lib.engine import FORMATS, QUALITY, public_url
 from lib.errors import download_error
+from lib.storage import storage_path
 
 app=FastAPI()
 ROOT=Path(__file__).resolve().parents[1]
@@ -34,7 +35,7 @@ def events(data):
                 return
             yield json.dumps({'status':'uploading','progress':100})+'\n'
             file=Path(folder)/result['filename']
-            pathname=f'downloads/{uuid.uuid4().hex}/{file.name}'
+            pathname=storage_path(file.name)
             with file.open('rb') as body:
                 saved=blob.put_blob(pathname,body,access='private',content_length=result['size'],content_type=mimetypes.guess_type(file.name)[0] or 'application/octet-stream')
             payload=base64.urlsafe_b64encode(json.dumps({'pathname':saved.pathname,'expires':int(time.time())+86400}).encode()).decode().rstrip('=')
