@@ -1,0 +1,27 @@
+api/cloud.py
+  s_3c3574c8e604d0::t_d0e40d176a601c 1,8,38
+api/file.js
+  s_3c3574c8e604d0::t_fa979bbd35626c 2,13-25,27-28
+lib/storage.py
+  s_3c3574c8e604d0::t_7d3556a851792f 1-9
+tests/file.test.cjs
+  s_3c3574c8e604d0::t_bb13910369c2ed 2-4,9-22
+tests/test_backend.py
+  s_3c3574c8e604d0::t_ea468adeccd14d 43-56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b94f2d4580dcd3711bc0454f131792abb94aae34",
+  "prompts": {},
+  "sessions": {
+    "s_3c3574c8e604d0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18e64-5597-76c0-b65f-6edb4e225d19",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "raslan <raslankiwan@gmail.com>"
+    }
+  }
+}
