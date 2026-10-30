@@ -1,0 +1,29 @@
+.gitignore
+  s_3c3574c8e604d0::t_601c959d8484c1 10
+lib/engine.py
+  s_3c3574c8e604d0::t_3d079c29a30ff2 6,37
+package-lock.json
+  s_3c3574c8e604d0::t_10ad4dd61c1bac 12-13,207-228
+package.json
+  s_3c3574c8e604d0::t_7986a0ae772d68 7,14-15,21
+pyproject.toml
+  s_3c3574c8e604d0::t_25d43b4b92864c 5
+scripts/build.cjs
+  s_3c3574c8e604d0::t_de7d7c625f375d 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "08da12fcd7212f8548ed931fe18070d0bdecb83f",
+  "prompts": {},
+  "sessions": {
+    "s_3c3574c8e604d0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18e64-5597-76c0-b65f-6edb4e225d19",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "raslan <raslankiwan@gmail.com>"
+    }
+  }
+}
