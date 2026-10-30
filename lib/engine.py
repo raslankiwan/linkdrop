@@ -79,6 +79,7 @@ def main():
         opts['format']=f'bv*{ceiling}+ba/b{ceiling}'
         if fmt!='original':
             opts.update(merge_output_format='mkv',postprocessors=[{'key':'FFmpegVideoConvertor','preferedformat':fmt}])
+            if fmt=='webm': opts['postprocessor_args']={'videoconvertor+ffmpeg_o':['-deadline','realtime','-cpu-used','6','-threads','2']}
     with PublicDL(opts) as dl: info=dl.extract_info(url,download=True)
     files=[p for p in folder.iterdir() if p.is_file() and p.suffix not in {'.part','.ytdl','.temp'}]
     if not files: raise ValueError('No downloadable file was returned. The source may exceed the 200 MB hosted limit.')
