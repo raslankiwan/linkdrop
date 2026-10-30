@@ -1,5 +1,5 @@
 const { createHmac, timingSafeEqual } = require('node:crypto');
-const { presignUrl, issueSignedToken, copy } = require('@vercel/blob');
+const { presignUrl, issueSignedToken, copy, getDownloadUrl } = require('@vercel/blob');
 module.exports = async function handler(req,res) {
   res.setHeader('Cache-Control','no-store');
   try {
@@ -26,6 +26,6 @@ module.exports = async function handler(req,res) {
     const validUntil=Math.min(data.expires*1000,Date.now()+15*60*1000);
     const signed=await issueSignedToken({pathname,operations:['get'],validUntil});
     const result=await presignUrl(signed,{operation:'get',pathname,access:'private',validUntil});
-    res.statusCode=302;res.setHeader('Location',result.presignedUrl);res.end();
+    res.statusCode=302;res.setHeader('Location',getDownloadUrl(result.presignedUrl));res.end();
   } catch(e) {res.statusCode=400;res.setHeader('Content-Type','text/plain');res.end(e.message || 'File unavailable.');}
 };
