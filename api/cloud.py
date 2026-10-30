@@ -16,7 +16,7 @@ def events(data):
         with tempfile.TemporaryDirectory(prefix='linkdrop-') as folder:
             data['folder']=folder
             proc=subprocess.Popen([sys.executable,str(ROOT/'lib'/'engine.py')],stdin=subprocess.PIPE,stdout=subprocess.PIPE,
-                                  stderr=subprocess.DEVNULL,text=True,start_new_session=True)
+                                  stderr=subprocess.DEVNULL,text=True,start_new_session=True,env={**os.environ,'PYTHONPATH':os.pathsep.join(sys.path)})
             def kill():
                 try: os.killpg(proc.pid,signal.SIGKILL)
                 except ProcessLookupError: pass
@@ -60,7 +60,7 @@ async def handler(request:Request):
         public_url(data.get('url'))
         if request.url.path.endswith('/inspect') or data.get('action')=='inspect':
             data['action']='inspect'
-            result=subprocess.run([sys.executable,str(ROOT/'lib'/'engine.py')],input=json.dumps(data)+'\n',text=True,capture_output=True,timeout=55)
+            result=subprocess.run([sys.executable,str(ROOT/'lib'/'engine.py')],input=json.dumps(data)+'\n',text=True,capture_output=True,timeout=55,env={**os.environ,'PYTHONPATH':os.pathsep.join(sys.path)})
             rows=[json.loads(line) for line in result.stdout.splitlines() if line.strip()]
             if result.returncode: raise ValueError(rows[-1].get('error','Cannot inspect this video.') if rows else 'Cannot inspect this video.')
             return JSONResponse(rows[-1],headers={'Cache-Control':'no-store'})
