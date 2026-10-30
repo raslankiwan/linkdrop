@@ -17,6 +17,19 @@ Video and audio downloader with a Mac-local app and a responsive Vercel web app.
 - Some platforms block datacenter IP addresses, require sign-in, or change their extractors. No guaranteed support for every URL, DRM bypass, authenticated posts, or playlists.
 - Downloads consume Vercel compute, storage, and transfer quotas. The public app has per-job limits, but no account-based quota. Monitor usage before broad distribution.
 
+## YouTube verification
+
+YouTube may refuse requests from cloud hosting with “Sign in to confirm you're not a bot.”
+The hosted app reports this separately and offers **Try on this Mac**. This is a platform-side refusal; a format change does not resolve it.
+
+1. On your Mac, clone or download this repository and run `Start.command`.
+2. Click **Try on this Mac** on the hosted error. The video link, format, and quality transfer into the local app.
+3. Try the download on your own connection. If verification is still required, sign into YouTube in your browser and select that browser under **Browser session** in the local app. The app reads the selected session only when you inspect or download; default is **No browser session**. macOS may prompt for Keychain access.
+
+Browser sessions are never uploaded to the hosted service. Treat cookies as credentials; do not add them to the public repository. Session use may fail or risk account restrictions. It is optional and does not guarantee download access. See [yt-dlp's YouTube guidance](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies).
+
+The cloud app cannot use a visitor's local browser cookies or guarantee access to every YouTube video. This version does not configure proxies or third-party extraction services.
+
 ## Local Mac app
 
 Double-click `Start.command`, then open http://127.0.0.1:8765. Leave Terminal open.

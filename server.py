@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 import yt_dlp
 import imageio_ffmpeg
+from lib.errors import download_error
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / 'downloads'
@@ -22,10 +23,14 @@ def urlcheck(url):
         raise ValueError('Paste a valid public HTTP or HTTPS video link.')
     return url
 
-def options():
-    return {'quiet': True, 'no_warnings': True, 'noplaylist': True, 'socket_timeout': 25,
+def options(browser=None):
+    opts = {'quiet': True, 'no_warnings': True, 'noplaylist': True, 'socket_timeout': 25,
             'retries': 2, 'ffmpeg_location': FFMPEG, 'js_runtimes': {'node': {}},
             'remote_components': ['ejs:github']}
+    if browser:
+        if browser not in {'chrome','safari','firefox','edge','brave'}: raise ValueError('Choose a supported browser.')
+        opts['cookiesfrombrowser']=(browser,)
+    return opts
 
 def update(jid, **values):
     with LOCK: JOBS[jid].update(values)
@@ -44,7 +49,7 @@ def run(jid, data):
             update(jid, status='starting')
             fmt, quality = data['format'], data['quality']
             ceiling = '' if quality == 'best' else '[height<=?' + quality + ']'
-            opts = options()
+            opts = options(data.get('browser'))
             opts.update({'outtmpl': str(folder / '%(title).160B.%(ext)s'), 'progress_hooks': [progress],
                          'restrictfilenames': False, 'windowsfilenames': True})
             if fmt in AUDIO:
@@ -62,7 +67,7 @@ def run(jid, data):
             update(jid, status='complete', progress=100, title=info.get('title') or path.stem,
                    filename=path.name, size=path.stat().st_size)
         except Exception as e:
-            update(jid, status='error', error=str(e).replace('\x1b','')[:1500])
+            update(jid, status='error', **download_error(e))
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args): pass
@@ -108,7 +113,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.sendjson({'cleared':len(finished)})
             data['url']=urlcheck(data.get('url',''))
             if self.path=='/api/inspect':
-                with yt_dlp.YoutubeDL(options()) as ydl: info=ydl.extract_info(data['url'],download=False)
+                with yt_dlp.YoutubeDL(options(data.get('browser'))) as ydl: info=ydl.extract_info(data['url'],download=False)
                 heights=sorted({f['height'] for f in info.get('formats',[]) if f.get('height')},reverse=True)
                 return self.sendjson({'title':info.get('title'), 'duration':info.get('duration'), 'uploader':info.get('uploader'),
                                       'platform':info.get('extractor_key'), 'heights':heights})
@@ -119,7 +124,7 @@ class Handler(BaseHTTPRequestHandler):
                 if sum(j['status'] not in ('complete','error') for j in JOBS.values())>=10: raise ValueError('Queue is full. Wait for a download to finish.')
                 jid=uuid.uuid4().hex; JOBS[jid]={'status':'queued','title':data.get('title') or data['url'], 'format':data['format'], 'progress':0}
             threading.Thread(target=run,args=(jid,data),daemon=True).start(); self.sendjson({'id':jid},202)
-        except Exception as e: self.sendjson({'error':str(e)[:1500]},400)
+        except Exception as e: self.sendjson(download_error(e),400)
 
 if __name__=='__main__':
     port=int(os.environ.get('PORT','8765'))

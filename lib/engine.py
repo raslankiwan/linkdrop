@@ -7,6 +7,11 @@ import shutil
 import gzip
 import tempfile
 import yt_dlp
+# The worker is launched as a script with lib/ on its import path.
+try:
+    from .errors import download_error
+except ImportError:
+    from errors import download_error
 
 MAX_BYTES = 200 * 1024 * 1024
 FORMATS = {'original','mp4','mkv','webm','mov','mp3','m4a','wav','flac','opus'}
@@ -105,4 +110,4 @@ def main():
 if __name__=='__main__':
     try: main()
     except Exception as exc:
-        emit({'status':'error','error':str(exc)[:1200]});sys.exit(1)
+        emit({'status':'error',**download_error(exc)});sys.exit(1)

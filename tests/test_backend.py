@@ -26,3 +26,18 @@ class BackendTests(unittest.TestCase):
             with self.assertRaises(ValueError):public_url('http://example.com/x')
 
 if __name__=='__main__':unittest.main()
+
+class YouTubeRecoveryTests(unittest.TestCase):
+    def test_youtube_verification_has_recovery_code(self):
+        from lib.errors import download_error
+        result=download_error("ERROR: [youtube] S-WLYzKZiDg: Sign in to confirm you’re not a bot. Use --cookies")
+        self.assertEqual(result['code'],'YOUTUBE_AUTH_REQUIRED')
+        self.assertIn('local Mac app',result['error'])
+        self.assertNotIn('--cookies',result['error'])
+    def test_other_errors_are_not_misclassified(self):
+        from lib.errors import download_error
+        self.assertEqual(download_error('Video unavailable')['code'],'DOWNLOAD_FAILED')
+    def test_browser_auth_is_opt_in_and_allowlisted(self):
+        self.assertNotIn('cookiesfrombrowser',server.options())
+        self.assertEqual(server.options('chrome')['cookiesfrombrowser'],('chrome',))
+        with self.assertRaises(ValueError):server.options('/arbitrary/path')

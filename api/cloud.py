@@ -4,6 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from vercel.blob import sync as blob
 from lib.engine import FORMATS, QUALITY, public_url
+from lib.errors import download_error
 
 app=FastAPI()
 ROOT=Path(__file__).resolve().parents[1]
@@ -62,7 +63,8 @@ async def handler(request:Request):
             data['action']='inspect'
             result=subprocess.run([sys.executable,str(ROOT/'lib'/'engine.py')],input=json.dumps(data)+'\n',text=True,capture_output=True,timeout=55,env={**os.environ,'PYTHONPATH':os.pathsep.join(sys.path)})
             rows=[json.loads(line) for line in result.stdout.splitlines() if line.strip()]
-            if result.returncode: raise ValueError(rows[-1].get('error','Cannot inspect this video.') if rows else 'Cannot inspect this video.')
+            if result.returncode:
+                return JSONResponse(rows[-1] if rows else download_error('Cannot inspect this video.'),400,headers={'Cache-Control':'no-store'})
             return JSONResponse(rows[-1],headers={'Cache-Control':'no-store'})
         if data.get('format') not in FORMATS or data.get('quality') not in QUALITY: raise ValueError('Unsupported format or quality.')
         if not os.environ.get('LINKDROP_SECRET'): raise ValueError('Cloud downloads are not configured.')
