@@ -1,0 +1,23 @@
+.gitignore
+  s_3c3574c8e604d0::t_75f9def66b9cd0 11
+lib/engine.py
+  s_3c3574c8e604d0::t_f17b160f6f0cd0 7-8,36-47,51
+scripts/build.cjs
+  s_3c3574c8e604d0::t_b7256f1c745206 2,4-6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "97d04e46c37c771e9dcf725f4fa3b76cdaa231a3",
+  "prompts": {},
+  "sessions": {
+    "s_3c3574c8e604d0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18e64-5597-76c0-b65f-6edb4e225d19",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "raslan <raslankiwan@gmail.com>"
+    }
+  }
+}
