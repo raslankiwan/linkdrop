@@ -1,0 +1,43 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/cloud.py": {
+      "maxDuration": 300,
+      "excludeFiles": "{.venv*/**,node_modules/**,downloads/**,tests/**,work/**}"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/inspect",
+      "destination": "/api/cloud"
+    },
+    {
+      "source": "/api/download",
+      "destination": "/api/cloud"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "same-origin"
+        }
+      ]
+    }
+  ],
+  "framework": null,
+  "buildCommand": "npm run build",
+  "outputDirectory": "public",
+  "crons": [
+    {
+      "path": "/api/cleanup",
+      "schedule": "0 3 * * *"
+    }
+  ]
+}
