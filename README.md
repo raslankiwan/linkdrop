@@ -31,10 +31,10 @@ Node.js is recommended for YouTube JavaScript challenges.
 3. Configure `BLOB_READ_WRITE_TOKEN`, `LINKDROP_SECRET`, and `CRON_SECRET` in Vercel environment variables. Secrets must stay server-side.
 4. `vercel --prod`, then `vercel git connect` to enable GitHub deployments.
 
-Frontend: `public/`. Python function: `api/cloud.py`. Bounded yt-dlp subprocess: `lib/engine.py`.
+Frontend: `public/`. Python function: `api/cloud.py`. Bounded yt-dlp subprocess: `lib/engine.py`. The Python deployment bundles FFmpeg and a Node.js runtime for YouTube JavaScript challenges.
 Private download signing: `api/file.js`. Daily retention cleanup: `api/cleanup.js`.
 No job state is held in server memory across requests; each job keeps its function request open.
 Actual network connections in the download worker reject private/loopback destinations, including redirects.
 
-Run `npm test` for browser-history and file-ticket tests.
+Run `npm test` for browser-history and file-ticket tests, and `python -m unittest discover -s tests -p 'test_*.py'` for backend tests.
 Only download media you own or have permission to save. Converting lossy audio to FLAC/WAV cannot recover lost detail.

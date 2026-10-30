@@ -2,4 +2,4 @@
 name = "linkdrop"
 version = "1.0.0"
 requires-python = ">=3.12"
-dependencies = ["yt-dlp[default]==2026.10.26", "imageio-ffmpeg==0.7.0", "fastapi==0.162.0", "vercel-blob==0.5.0"]
+dependencies = ["yt-dlp[default]==2026.10.26", "imageio-ffmpeg==0.7.0", "fastapi==0.162.0", "vercel-blob==0.5.0", "nodejs-wheel-binaries==24.19.0"]
