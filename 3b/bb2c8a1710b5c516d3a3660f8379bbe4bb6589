@@ -1,0 +1,35 @@
+README.md
+  s_3c3574c8e604d0::t_ff2d90e6e78e6c 20-32
+api/cloud.py
+  s_3c3574c8e604d0::t_7d458decc05ee7 7,66-67
+index.html
+  s_3c3574c8e604d0::t_cc1624e38c7d5c 4-5,8,11-12
+lib/engine.py
+  s_3c3574c8e604d0::t_a0927790e2ab59 10-14,113
+lib/errors.py
+  s_3c3574c8e604d0::t_a7a12a737f9801 1-7
+public/app.js
+  s_3c3574c8e604d0::t_fb51d6d26b8aaa 6-11,17,19,22
+server.py
+  s_3c3574c8e604d0::t_bf5b772eaec9af 7,26-27,30-33,52,70,116,127
+tests/history.test.cjs
+  s_3c3574c8e604d0::t_85e16fd1ba8fc2 16-20
+tests/test_backend.py
+  s_3c3574c8e604d0::t_efcc4d1818e66a 29-43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "3bbb2c8a1710b5c516d3a3660f8379bbe4bb6589",
+  "prompts": {},
+  "sessions": {
+    "s_3c3574c8e604d0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18e64-5597-76c0-b65f-6edb4e225d19",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "raslan <raslankiwan@gmail.com>"
+    }
+  }
+}
