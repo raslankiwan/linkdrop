@@ -83,6 +83,11 @@ class Handler(BaseHTTPRequestHandler):
             body=(ROOT/'index.html').read_text().replace('__TOKEN__',TOKEN).encode()
             self.send_response(200); self.send_header('Content-Type','text/html; charset=utf-8'); self.send_header('Content-Length',str(len(body)))
             self.send_header('Cache-Control','no-store'); self.end_headers(); self.wfile.write(body)
+        elif path=='/auto-save.js':
+            body=(ROOT/'public'/'auto-save.js').read_bytes()
+            self.send_response(200); self.send_header('Content-Type','text/javascript; charset=utf-8')
+            self.send_header('Content-Length',str(len(body))); self.send_header('Cache-Control','no-store')
+            self.end_headers(); self.wfile.write(body)
         elif path=='/api/jobs':
             with LOCK: jobs=[dict(j, id=k) for k,j in JOBS.items()]
             self.sendjson({'jobs':jobs[::-1]})

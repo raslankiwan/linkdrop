@@ -9,7 +9,7 @@ Video and audio downloader with a Mac-local app and a responsive Vercel web app.
 - Paste a public video URL, inspect source resolutions, select format and quality.
 - MP4, MKV, WebM, MOV, MP3, M4A, WAV, FLAC, Opus, or original.
 - Two concurrent downloads per browser and up to ten active/queued entries.
-- Streaming progress; keep the page open until processing finishes.
+- One click starts processing and automatically requests the browser download when ready; keep the page open until processing finishes. Browsers may ask for a save location or permission for automatic/multiple downloads. **Download again** is an optional retry link. Reloading the page does not re-download old history entries.
 - History is stored only in that browser. **Clear history** removes completed and failed entries, preserving active jobs and downloaded files.
 - Files are uploaded into private Vercel Blob storage; HMAC-signed application tickets expire in 24 hours. Each save action issues a 15-minute URL scoped to that file.
 - Daily cleanup removes cloud files older than 24 hours (actual retention up to 48 hours).
