@@ -1,0 +1,29 @@
+README.md
+  s_3c3574c8e604d0::t_76572d0e67fffe 34,39
+index.html
+  s_3c3574c8e604d0::t_7effecfa125fa0 3
+lib/engine.py
+  s_3c3574c8e604d0::t_cd18933e35a27f 6,37
+public/index.html
+  s_3c3574c8e604d0::t_5e471e2524fa52 3
+pyproject.toml
+  s_3c3574c8e604d0::t_a58fccbbaa2e42 5
+requirements.txt
+  s_3c3574c8e604d0::t_97cbde08db1600 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "ad8297ed4930f061a88f98cbb94c12680d2872e6",
+  "prompts": {},
+  "sessions": {
+    "s_3c3574c8e604d0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18e64-5597-76c0-b65f-6edb4e225d19",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "raslan <raslankiwan@gmail.com>"
+    }
+  }
+}
