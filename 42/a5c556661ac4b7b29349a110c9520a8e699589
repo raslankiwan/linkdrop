@@ -1,0 +1,19 @@
+tests/test_backend.py
+  s_3c3574c8e604d0::t_5f37c02cb171b8 1-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "42a5c556661ac4b7b29349a110c9520a8e699589",
+  "prompts": {},
+  "sessions": {
+    "s_3c3574c8e604d0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18e64-5597-76c0-b65f-6edb4e225d19",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "raslan <raslankiwan@gmail.com>"
+    }
+  }
+}
