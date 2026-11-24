@@ -360,7 +360,10 @@ def convert_office(src, dst, target, timeout):
 def read_rows(path, ext):
     if ext in ('csv', 'tsv'):
         text = _read_text(path)
-        dialect = 'excel-tab' if ext == 'tsv' else csv.Sniffer().sniff(text[:4096], ',;|\t') if text.strip() else 'excel'
+        dialect = 'excel-tab' if ext == 'tsv' else 'excel'
+        if ext == 'csv' and text.strip():
+            try: dialect = csv.Sniffer().sniff(text[:4096], ',;|\t')
+            except csv.Error: pass  # the sniffer gives up on some valid files; plain commas are the safe default
         return [row for row in csv.reader(io.StringIO(text), dialect)]
     if ext == 'json':
         return _tabular(json.loads(_read_text(path)))
