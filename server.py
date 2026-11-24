@@ -1,14 +1,19 @@
-import json, os, secrets, threading, time, uuid, mimetypes, shutil
+import json, os, secrets, sys, threading, time, uuid, mimetypes, shutil
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 import yt_dlp
 import imageio_ffmpeg
 from lib.errors import download_error
+from lib import convert as converter
 
-ROOT = Path(__file__).resolve().parent
-DATA = ROOT / 'downloads'
-DATA.mkdir(exist_ok=True)
+FROZEN = getattr(sys, 'frozen', False)
+ROOT = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent))
+# Installed desktop apps save into the user's Downloads folder; a source checkout keeps ./downloads.
+DATA = Path(os.environ.get('LINKDROP_DOWNLOADS') or (Path.home() / 'Downloads' / 'LinkDrop' if FROZEN else ROOT / 'downloads'))
+DATA.mkdir(parents=True, exist_ok=True)
+MAX_UPLOAD = 4 * 1024 ** 3
+STATIC = {'/auto-save.js': 'text/javascript', '/convert.js': 'text/javascript', '/convert.css': 'text/css'}
 FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
 TOKEN = secrets.token_urlsafe(32)
 JOBS = {}
@@ -20,7 +25,7 @@ AUDIO = {'mp3', 'm4a', 'wav', 'flac', 'opus'}
 def urlcheck(url):
     p = urlparse(url)
     if p.scheme not in ('http', 'https') or not p.hostname or p.username or p.password:
-        raise ValueError('Paste a valid public HTTP or HTTPS video link.')
+        raise ValueError('Paste a valid HTTP or HTTPS link.')
     return url
 
 def options(browser=None):
@@ -69,6 +74,38 @@ def run(jid, data):
         except Exception as e:
             update(jid, status='error', **download_error(e))
 
+def run_convert(jid, data):
+    with GATE:
+        folder = DATA / jid
+        try:
+            update(jid, status='starting')
+            if data.get('sourceUrl'):
+                update(jid, status='downloading', progress=0)
+                def progress(done, total): update(jid, progress=round(done / total * 100, 1) if total else 0, size=done)
+                source, name = converter.fetch(data['sourceUrl'], folder, 0, guard=False, progress=progress)
+                update(jid, title=name)
+            else:
+                source, name = Path(data['input']), data['filename']
+            if data['target'] == 'original':
+                path = folder / name
+                if path != source: shutil.move(str(source), path)
+            else:
+                update(jid, status='processing', progress=100)
+                out = folder / 'out'; out.mkdir(exist_ok=True)
+                result = converter.convert(source, data['target'], out, name, timeout=3600)
+                path = folder / result.name
+                shutil.move(str(result), path); shutil.rmtree(out, ignore_errors=True)
+                if source.exists() and source != path: source.unlink()
+            update(jid, status='complete', progress=100, title=path.name, filename=path.name, size=path.stat().st_size)
+        except Exception as e:
+            update(jid, status='error', error=str(e)[:1200] or e.__class__.__name__, code='CONVERT_FAILED')
+
+def new_job(title, fmt, kind='download'):
+    with LOCK:
+        if sum(j['status'] not in ('complete','error') for j in JOBS.values())>=10: raise ValueError('Queue is full. Wait for a job to finish.')
+        jid=uuid.uuid4().hex; JOBS[jid]={'status':'queued','title':title,'format':fmt,'progress':0,'kind':kind}
+    return jid
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args): pass
     def sendjson(self, obj, code=200):
@@ -83,11 +120,13 @@ class Handler(BaseHTTPRequestHandler):
             body=(ROOT/'index.html').read_text().replace('__TOKEN__',TOKEN).encode()
             self.send_response(200); self.send_header('Content-Type','text/html; charset=utf-8'); self.send_header('Content-Length',str(len(body)))
             self.send_header('Cache-Control','no-store'); self.end_headers(); self.wfile.write(body)
-        elif path=='/auto-save.js':
-            body=(ROOT/'public'/'auto-save.js').read_bytes()
-            self.send_response(200); self.send_header('Content-Type','text/javascript; charset=utf-8')
+        elif path in STATIC:
+            body=(ROOT/'public'/path.lstrip('/')).read_bytes()
+            self.send_response(200); self.send_header('Content-Type',STATIC[path]+'; charset=utf-8')
             self.send_header('Content-Length',str(len(body))); self.send_header('Cache-Control','no-store')
             self.end_headers(); self.wfile.write(body)
+        elif path=='/api/capabilities':
+            self.sendjson({**converter.capabilities(),'maxBytes':MAX_UPLOAD,'downloads':str(DATA)})
         elif path=='/api/jobs':
             with LOCK: jobs=[dict(j, id=k) for k,j in JOBS.items()]
             self.sendjson({'jobs':jobs[::-1]})
@@ -109,6 +148,8 @@ class Handler(BaseHTTPRequestHandler):
         if self.headers.get('X-Token')!=TOKEN: return self.sendjson({'error':'Reload the app and try again.'},403)
         try:
             length=int(self.headers.get('Content-Length','0'))
+            if self.path=='/api/convert' and self.headers.get('Content-Type','').startswith('application/octet-stream'):
+                return self.upload(length)
             if length>8192: raise ValueError('Request too large')
             data=json.loads(self.rfile.read(length))
             if self.path=='/api/history/clear':
@@ -116,6 +157,15 @@ class Handler(BaseHTTPRequestHandler):
                     finished=[key for key,job in JOBS.items() if job['status'] in ('complete','error')]
                     for key in finished: del JOBS[key]
                 return self.sendjson({'cleared':len(finished)})
+            if self.path=='/api/convert':
+                url=urlcheck(data.get('sourceUrl',''))
+                target=str(data.get('target') or 'original').lower()
+                if target!='original':
+                    ext=converter.extension(Path(urlparse(url).path).name)
+                    if ext and target not in converter.targets(ext): raise ValueError(f'Converting .{ext} to .{target} is not supported.')
+                jid=new_job(url,target,'convert'); (DATA/jid).mkdir()
+                threading.Thread(target=run_convert,args=(jid,{'sourceUrl':url,'target':target}),daemon=True).start()
+                return self.sendjson({'id':jid},202)
             data['url']=urlcheck(data.get('url',''))
             if self.path=='/api/inspect':
                 with yt_dlp.YoutubeDL(options(data.get('browser'))) as ydl: info=ydl.extract_info(data['url'],download=False)
@@ -125,14 +175,34 @@ class Handler(BaseHTTPRequestHandler):
             if self.path!='/api/download': return self.sendjson({'error':'Not found'},404)
             if data.get('format') not in FORMATS or data.get('quality') not in {'best','2160','1440','1080','720','480','360'}:
                 raise ValueError('Choose a supported format and quality.')
-            with LOCK:
-                if sum(j['status'] not in ('complete','error') for j in JOBS.values())>=10: raise ValueError('Queue is full. Wait for a download to finish.')
-                jid=uuid.uuid4().hex; JOBS[jid]={'status':'queued','title':data.get('title') or data['url'], 'format':data['format'], 'progress':0}
+            jid=new_job(data.get('title') or data['url'],data['format'])
             threading.Thread(target=run,args=(jid,data),daemon=True).start(); self.sendjson({'id':jid},202)
         except Exception as e: self.sendjson(download_error(e),400)
+    def upload(self,length):
+        name=Path(unquote(self.headers.get('X-Filename',''))).name[:160] or 'file'
+        target=str(self.headers.get('X-Target','')).lower(); ext=converter.extension(name)
+        if not length or length>MAX_UPLOAD: raise ValueError('Files up to 4 GB can be converted.')
+        if target not in converter.targets(ext): raise ValueError(f'Converting .{ext or "?"} to .{target} is not supported on this computer.')
+        jid=new_job(name,target,'convert'); folder=DATA/jid; folder.mkdir()
+        source=folder/('source.'+(ext or 'bin')); remaining=length
+        try:
+            with source.open('wb') as out:
+                while remaining:
+                    chunk=self.rfile.read(min(remaining,1<<20))
+                    if not chunk: raise ValueError('The upload was interrupted.')
+                    out.write(chunk); remaining-=len(chunk)
+        except Exception as e:
+            shutil.rmtree(folder,ignore_errors=True)
+            with LOCK: JOBS.pop(jid,None)
+            raise
+        threading.Thread(target=run_convert,args=(jid,{'input':str(source),'filename':name,'target':target}),daemon=True).start()
+        self.sendjson({'id':jid},202)
 
-if __name__=='__main__':
-    port=int(os.environ.get('PORT','8765'))
+def serve(port=None):
+    port=int(port if port is not None else os.environ.get('PORT','8765'))
     server=ThreadingHTTPServer(('127.0.0.1',port),Handler)
     print(f'LinkDrop ready at http://127.0.0.1:{port}',flush=True)
-    server.serve_forever()
+    return server
+
+if __name__=='__main__':
+    serve().serve_forever()

@@ -1,6 +1,6 @@
 {
   "name": "linkdrop",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "LinkDrop: local and Vercel-hosted video and audio downloader",
   "scripts": {
     "test": "node --test tests/*.test.cjs",

@@ -2,7 +2,29 @@
 
 **Live website:** [linkdrop-chi.vercel.app](https://linkdrop-chi.vercel.app)
 
-Video and audio downloader with a Mac-local app and a responsive Vercel web app.
+Video and audio downloader **and file converter**, with installable desktop apps for macOS and Windows and a responsive Vercel web app.
+
+**Desktop apps:** [latest release](https://github.com/raslankiwan/linkdrop/releases/latest) — `LinkDrop-<version>-macos-arm64.dmg` (Apple silicon), `-macos-x64.dmg` (Intel), `-windows-setup.exe` (or the portable `.zip`).
+
+## File conversion and file downloads
+
+Section **3 · Convert or download any file** works in the web app and the desktop apps:
+
+- **Upload a file** (drag and drop or browse), pick the output format, and the converted file downloads automatically.
+- **From a link**: paste a link to any file (PDF, ZIP, image, document…) to download it as-is, or convert it on the way.
+
+| Input | Output |
+| --- | --- |
+| Video (mp4, mkv, webm, mov, avi, m4v, flv, wmv, mpeg, 3gp, ts, ogv…) | mp4, mkv, webm, mov, avi, gif, and any audio format |
+| Audio (mp3, m4a, wav, flac, opus, ogg, aac, wma, aiff, amr…) | mp3, m4a, wav, flac, opus, ogg, aac |
+| Images (png, jpg, webp, gif, bmp, tiff, ico, tga, avif…) | png, jpg, webp, gif, bmp, tiff, ico, pdf (animated gif → mp4/webm too) |
+| PDF | txt, md, html, docx, png/jpg (one image per page; several pages come as a .zip) |
+| Word (.docx), Markdown, HTML, text | pdf, docx, html, md, txt |
+| Data (csv, tsv, json, yaml, xlsx) | csv, tsv, json, yaml, xlsx, html table, markdown table |
+| Archives (zip, tar, tar.gz, tar.bz2, tar.xz) | zip, tar, tar.gz, tar.bz2, tar.xz |
+| Office (doc, odt, rtf, pptx, ppt, odp, xls, ods, pages, key, numbers, epub) | pdf and the matching Office/OpenDocument formats — **desktop app only, when [LibreOffice](https://www.libreoffice.org/download/) is installed** |
+
+Web limits: 200 MB per file and about 4 minutes per job. Files up to 4 MB are sent straight to the converter; larger uploads go directly from the browser to private Blob storage and are deleted after conversion (the daily cleanup also removes anything older than 24 hours). The desktop app handles files up to 4 GB with no time limit and saves results in `Downloads/LinkDrop`. Docx/HTML → PDF on the web keeps the text structure (headings, paragraphs, lists), not exact page layout; install LibreOffice and use the desktop app for layout-faithful Office → PDF.
 
 ## Hosted web app
 
@@ -30,9 +52,15 @@ Browser sessions are never uploaded to the hosted service. Treat cookies as cred
 
 The cloud app cannot use a visitor's local browser cookies or guarantee access to every YouTube video. This version does not configure proxies or third-party extraction services.
 
-## Local Mac app
+## Desktop app (macOS and Windows)
 
-Double-click `Start.command`, then open http://127.0.0.1:8765. Leave Terminal open.
+Install from the [latest release](https://github.com/raslankiwan/linkdrop/releases/latest). The app opens LinkDrop in your browser at http://127.0.0.1:8765 and shows a small window with **Open LinkDrop**, **Open downloads folder** and **Quit**. The builds are not code-signed yet: on macOS, right-click LinkDrop.app → **Open** the first time; on Windows, choose **More info → Run anyway** in SmartScreen.
+
+Releases are built by `.github/workflows/desktop.yml` with PyInstaller (`desktop/linkdrop.spec`) and Inno Setup (`desktop/installer.iss`). Push a tag such as `v1.1.0` to publish a new release, or run the workflow manually to get the builds as artifacts.
+
+### Run from source
+
+Double-click `Start.command` (macOS), or run `python server.py` after `pip install -r requirements-desktop.txt`, then open http://127.0.0.1:8765. Leave Terminal open.
 The local backend binds only to loopback and stores files in `downloads/`.
 Local history resets on restart; downloaded files remain on disk.
 The local clear-history action hides finished/failed jobs without deleting files.
@@ -45,11 +73,12 @@ Node.js is recommended for YouTube JavaScript challenges.
 2. `vercel link` and create a **private** Blob store connected to production and preview.
 3. Configure `BLOB_READ_WRITE_TOKEN`, `LINKDROP_SECRET`, and `CRON_SECRET` in Vercel environment variables. Secrets must stay server-side.
 4. `vercel --prod`, then `vercel git connect` to enable GitHub deployments.
+5. Or let GitHub Actions deploy: add the repository secrets `VERCEL_TOKEN` (vercel.com/account/tokens), `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` (both in `.vercel/project.json` after `vercel link`). `.github/workflows/deploy.yml` then runs the tests and deploys every push to `main` to production.
 
 Frontend: `public/`. Python function: `api/cloud.py`. Bounded yt-dlp subprocess: `lib/engine.py`. The Python deployment bundles FFmpeg and a Node.js runtime for YouTube JavaScript challenges.
-Private download signing: `api/file.js`. Daily retention cleanup: `api/cleanup.js`.
+Private download signing: `api/file.js`. Conversion uploads: `api/upload.js`. Converters: `lib/convert.py` (also runs the desktop app's conversions). Daily retention cleanup: `api/cleanup.js`.
 No job state is held in server memory across requests; each job keeps its function request open.
 Actual network connections in the download worker reject private/loopback destinations, including redirects.
 
-Run `npm test` for browser-history and file-ticket tests, and `python -m unittest discover -s tests -p 'test_*.py'` for backend tests.
+Run `npm test` for browser-history, file-ticket and upload tests, and `python -m unittest discover -s tests -p 'test_*.py'` for backend and converter tests.
 Only download media you own or have permission to save. Converting lossy audio to FLAC/WAV cannot recover lost detail.

@@ -1,0 +1,13 @@
+.convert-panel{margin-top:28px}
+.modes{display:inline-flex;gap:4px;background:#f1f4ec;border-radius:10px;padding:4px;margin-bottom:14px}
+.modes button{border:0;background:none;padding:8px 14px;border-radius:7px;font-size:13px;color:#5f6b59;font-weight:600}
+.modes button[aria-pressed=true]{background:#fff;color:#26392c;box-shadow:0 1px 3px #2533111a}
+.drop{border:1.5px dashed #cdd6c3;border-radius:12px;background:#fafbf8;padding:26px 18px;text-align:center;font-size:13px;color:#6f7a68;cursor:pointer;transition:background .2s,border-color .2s}
+.drop:hover,.drop.over{background:#f3f7e7;border-color:#a3c64a}
+.drop b{color:#26392c;overflow-wrap:anywhere}.drop u{color:#526a36}
+.drop .drop-icon{font-size:22px;display:block;margin-bottom:6px;color:#688147}
+#file-url{width:100%;height:53px;border:1px solid #dce2d6;border-radius:10px;padding:0 15px;background:#fafbf8;outline:none}
+#file-url:focus{border-color:#829b3b;box-shadow:0 0 0 3px #d9f46844}
+.convert-row{margin-top:16px}
+.download:disabled{cursor:not-allowed}
+.drop:focus-visible,.modes button:focus-visible{outline:3px solid #a3c64a;outline-offset:3px}
