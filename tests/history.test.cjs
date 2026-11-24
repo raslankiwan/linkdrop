@@ -16,5 +16,5 @@ test('empty history renders an empty state after clearing',()=>{
 test('YouTube verification offers a local handoff without requesting cookies',()=>{
   const nodes={};const record={id:'yt',status:'error',format:'mp4',quality:'720',url:'https://www.youtube.com/watch?v=S-WLYzKZiDg',title:'Video',code:'YOUTUBE_AUTH_REQUIRED',error:'YouTube requires verification.'};
   vm.runInNewContext(fs.readFileSync('public/app.js','utf8'),{URLSearchParams,document:{getElementById:id=>nodes[id]||=({addEventListener(){}})},localStorage:{getItem:()=>JSON.stringify([record]),setItem(){}}});
-  assert.match(nodes.jobs.innerHTML,/Try on this Mac/);assert.match(nodes.jobs.innerHTML,/http:\/\/127\.0\.0\.1:8765\/#url=/);assert.match(nodes.jobs.innerHTML,/No browser cookies are uploaded/);
+  assert.match(nodes.jobs.innerHTML,/Try in the desktop app/);assert.match(nodes.jobs.innerHTML,/http:\/\/127\.0\.0\.1:8765\/#url=/);assert.match(nodes.jobs.innerHTML,/No browser cookies are uploaded/);
 });

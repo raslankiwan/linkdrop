@@ -9,3 +9,5 @@ __pycache__/
 .DS_Store
 lib/runtime-node
 lib/runtime-node.gz
+build/
+dist/

@@ -3,7 +3,7 @@
   "functions": {
     "api/cloud.py": {
       "maxDuration": 300,
-      "excludeFiles": "{.venv*/**,node_modules/**,downloads/**,tests/**,work/**}"
+      "excludeFiles": "{.venv*/**,node_modules/**,downloads/**,tests/**,work/**,desktop/**,dist/**,build/**}"
     }
   },
   "rewrites": [
@@ -13,6 +13,14 @@
     },
     {
       "source": "/api/download",
+      "destination": "/api/cloud"
+    },
+    {
+      "source": "/api/convert",
+      "destination": "/api/cloud"
+    },
+    {
+      "source": "/api/capabilities",
       "destination": "/api/cloud"
     }
   ],

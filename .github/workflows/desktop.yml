@@ -1,0 +1,82 @@
+name: Desktop apps
+
+# Builds the installable LinkDrop apps. Push a tag like v1.1.0 to publish a GitHub
+# Release with the macOS .dmg files and the Windows installer attached.
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths: ['desktop/**', 'lib/**', 'server.py', 'index.html', 'public/**', 'requirements-desktop.txt', '.github/workflows/desktop.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            name: macos-arm64
+          - os: macos-15-intel
+            name: macos-x64
+          - os: windows-latest
+            name: windows-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then v="${GITHUB_REF#refs/tags/v}"; else v="$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml)"; fi
+          echo "LINKDROP_VERSION=$v" >> "$GITHUB_ENV"
+      - name: Install
+        run: python -m pip install -r requirements-desktop.txt
+      - name: Test converters
+        run: python -m unittest tests.test_convert -v
+      - name: Build app
+        run: |
+          python desktop/make_icon.py build/icon
+          pyinstaller desktop/linkdrop.spec --noconfirm --distpath dist --workpath build/pyinstaller
+      - name: Package macOS disk image
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p build/dmg && cp -R dist/LinkDrop.app build/dmg/ && ln -s /Applications build/dmg/Applications
+          hdiutil create -volname LinkDrop -srcfolder build/dmg -ov -format UDZO "dist/LinkDrop-${LINKDROP_VERSION}-${{ matrix.name }}.dmg"
+      - name: Package Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) { choco install innosetup -y --no-progress }
+          $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
+          & $iscc "/DAppVersion=$env:LINKDROP_VERSION" desktop\installer.iss
+          Compress-Archive -Path dist\LinkDrop\* -DestinationPath "dist\LinkDrop-$env:LINKDROP_VERSION-windows-portable.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linkdrop-${{ matrix.name }}
+          path: |
+            dist/*.dmg
+            dist/*.exe
+            dist/*.zip
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" artifacts/* --repo "$GITHUB_REPOSITORY" --title "LinkDrop ${GITHUB_REF_NAME#v}" --notes "Desktop apps for macOS (Apple silicon and Intel) and Windows. The apps are not code-signed yet: on macOS, right-click LinkDrop.app and choose Open the first time; on Windows, choose More info → Run anyway in SmartScreen."

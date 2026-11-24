@@ -6,7 +6,7 @@ try{jobs=JSON.parse(localStorage.getItem(KEY)||'[]');if(!Array.isArray(jobs))job
 function youtubeBlocked(error,code){return code==='YOUTUBE_AUTH_REQUIRED'||(/\[youtube\]/i.test(error||'')&&/sign in to confirm|not a bot|--cookies/i.test(error||''))}
 function recovery(url,format='mp4',quality='best'){
   const params=new URLSearchParams({url,format,quality});
-  return `<div style="margin-top:12px;line-height:1.8"><a class="save" href="http://127.0.0.1:8765/#${escape(params.toString())}" target="_blank" rel="noopener noreferrer">Try on this Mac ↗</a> <a href="https://github.com/raslankiwan/linkdrop#youtube-verification" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:#526a36">Setup &amp; help</a><p class="hint" style="text-align:left">Start the Mac app first. On iPhone or iPad, open the link on your Mac. No browser cookies are uploaded to this website.</p></div>`;
+  return `<div style="margin-top:12px;line-height:1.8"><a class="save" href="http://127.0.0.1:8765/#${escape(params.toString())}" target="_blank" rel="noopener noreferrer">Try in the desktop app ↗</a> <a href="https://github.com/raslankiwan/linkdrop#youtube-verification" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:#526a36">Setup &amp; help</a><p class="hint" style="text-align:left">Start the LinkDrop desktop app (Mac or Windows) first. On a phone or tablet, open this page on your computer. No browser cookies are uploaded to this website.</p></div>`;
 }
 function showError(error){$('error').textContent=error.message;if(youtubeBlocked(error.message,error.code))$('error').insertAdjacentHTML('beforeend',recovery($('url').value,$('format').value,$('quality').value))}
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(jobs.slice(0,100)))}catch{}}
@@ -14,7 +14,7 @@ function render(){
   persist();$('count').textContent=jobs.length?'('+jobs.length+')':'';
   $('clear-history').disabled=!jobs.some(j=>['complete','error'].includes(j.status));
   if(!jobs.length){$('jobs').innerHTML='<div class="empty">Nothing here yet. Your next great find goes here.</div>';return}
-  $('jobs').innerHTML=jobs.map(j=>`<article class="job"><div class="jobtop"><div class="fileicon">${AUDIO.includes(j.format)?'♫':'▷'}</div><div class="jobinfo"><div class="title">${escape(j.title)}</div><div class="status">${escape(String(j.format).toUpperCase())} · ${escape(({processing:'Converting / merging…',uploading:'Securing your file…',complete:j.autoSaveRequested?'Download requested':'Ready'})[j.status]||j.status)}${j.status==='downloading'?' · '+(j.progress||0)+'%':''}${j.size?' · '+(j.size/1048576).toFixed(1)+' MB':''}</div></div>${j.status==='complete'&&typeof j.fileUrl==='string'&&j.fileUrl.startsWith('/api/file?ticket=')?`<a class="retry-save" href="${escape(j.fileUrl)}">Download again ↓</a>`:''}</div>${j.error?`<div class="error">${escape(j.error)}${youtubeBlocked(j.error,j.code)?recovery(j.url,j.format,j.quality):''}</div>`:''}${!['complete','error','queued'].includes(j.status)?`<div class="bar"><i style="width:${Math.max(3,Math.min(100,j.progress||0))}%"></i></div>`:''}</article>`).join('');
+  $('jobs').innerHTML=jobs.map(j=>`<article class="job"><div class="jobtop"><div class="fileicon">${j.kind==='convert'?(j.format==='original'?'↓':'⇄'):AUDIO.includes(j.format)?'♫':'▷'}</div><div class="jobinfo"><div class="title">${escape(j.title)}</div><div class="status">${escape(j.format==='original'?'FILE':String(j.format).toUpperCase())} · ${escape(({processing:j.kind==='convert'?'Converting…':'Converting / merging…','uploading file':'Uploading your file…',uploading:'Securing your file…',complete:j.autoSaveRequested?'Download requested':'Ready'})[j.status]||j.status)}${['downloading','uploading file'].includes(j.status)?' · '+(j.progress||0)+'%':''}${j.size?' · '+(j.size/1048576).toFixed(1)+' MB':''}</div></div>${j.status==='complete'&&typeof j.fileUrl==='string'&&j.fileUrl.startsWith('/api/file?ticket=')?`<a class="retry-save" href="${escape(j.fileUrl)}">Download again ↓</a>`:''}</div>${j.error?`<div class="error">${escape(j.error)}${youtubeBlocked(j.error,j.code)?recovery(j.url,j.format,j.quality):''}</div>`:''}${!['complete','error','queued'].includes(j.status)?`<div class="bar"><i style="width:${Math.max(3,Math.min(100,j.progress||0))}%"></i></div>`:''}</article>`).join('');
 }
 async function api(path,data){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const j=await r.json();if(!r.ok){const e=Error(j.error||'Request failed');e.code=j.code;throw e}return j}
 $('url').addEventListener('input',()=>{metadata=null;$('meta').hidden=true});
@@ -23,17 +23,46 @@ $('inspect').onsubmit=async e=>{e.preventDefault();$('error').textContent='';$('
 async function execute(job){
   running++;job.status='starting';render();let terminal=false;
   try {
-    const r=await fetch('/api/download',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'download',url:job.url,format:job.format,quality:job.quality})});
+    const r=job.kind==='convert'?await convertRequest(job):await fetch('/api/download',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'download',url:job.url,format:job.format,quality:job.quality})});
     if(!r.ok){let msg;try{msg=(await r.json()).error}catch{}throw Error(msg||'The server could not start this download.')}
     if(!r.body)throw Error('Streaming is unavailable in this browser.');
     const reader=r.body.getReader();const decoder=new TextDecoder();let pending='';
-    function consume(line){if(!line.trim())return;const event=JSON.parse(line);Object.assign(job,event);if(event.status==='complete'&&!job.autoSaveRequested&&LinkDropAutoSave.request(job.id,job.fileUrl))job.autoSaveRequested=true;if(['complete','error'].includes(event.status))terminal=true;render()}
+    function consume(line){if(!line.trim())return;const event=JSON.parse(line);Object.assign(job,event);if(event.status==='complete'&&job.kind==='convert'&&event.filename)job.title=event.filename;if(event.status==='complete'&&!job.autoSaveRequested&&LinkDropAutoSave.request(job.id,job.fileUrl))job.autoSaveRequested=true;if(['complete','error'].includes(event.status))terminal=true;render()}
     while(true){const {value,done}=await reader.read();if(done)break;pending+=decoder.decode(value,{stream:true});let index;while((index=pending.indexOf('\n'))!==-1){consume(pending.slice(0,index));pending=pending.slice(index+1)}}
     pending+=decoder.decode();if(pending.trim())consume(pending);
     if(!terminal)throw Error('Connection ended before completion. Try lower quality, or use the local app for large files.');
   }catch(e){job.status='error';job.error=e.message}
-  finally{running--;render();drain()}
+  finally{running--;files.delete(job.id);if(job.uploadPath){fetch('/api/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'delete',pathname:job.uploadPath})}).catch(()=>{});delete job.uploadPath}render();drain()}
 }
+// File conversion: small files go straight to the converter; larger ones upload
+// directly to private Blob storage first (function request bodies max out at 4.5 MB).
+const files=new Map();let limits={maxBytes:200*1048576,directUploadBytes:4*1048576};
+function hex(){return crypto.randomUUID().replace(/-/g,'')}
+function blobName(name){const ext=LinkDropConvert.extension(name)||'bin';const base=name.replace(/\.(tar\.(gz|bz2|xz)|[^.]+)$/i,'').replace(/[^A-Za-z0-9._-]+/g,'-').replace(/^[-._]+|[-._]+$/g,'').slice(0,80)||'file';return base+'.'+ext}
+async function convertRequest(job){
+  const post=body=>fetch('/api/convert',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(job.source==='link')return post({source:'link',sourceUrl:job.url,target:job.format});
+  const file=files.get(job.id);if(!file)throw Error('The page was reloaded before this file was sent. Choose the file again.');
+  if(file.size<=limits.directUploadBytes)return fetch('/api/convert',{method:'POST',headers:{'Content-Type':'application/octet-stream','X-Filename':encodeURIComponent(file.name),'X-Target':job.format},body:file});
+  job.status='uploading file';job.progress=0;render();
+  let client;try{client=await import('https://esm.sh/@vercel/blob@2.8.2/client')}catch{throw Error('Could not load the uploader. Check your connection and try again.')}
+  const pathname=`uploads/${hex()}/${blobName(file.name)}`;
+  await client.upload(pathname,file,{access:'private',handleUploadUrl:'/api/upload',multipart:file.size>32*1048576,onUploadProgress:e=>{job.progress=Math.round(e.percentage||0);render()}});
+  job.uploadPath=pathname;
+  const signed=await fetch('/api/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'source',pathname})});
+  const source=await signed.json();if(!signed.ok)throw Error(source.error||'Upload failed.');
+  job.status='starting';render();
+  return post({source:'upload',sourceUrl:source.url,filename:file.name,target:job.format});
+}
+function queueFull(){return jobs.filter(j=>!['complete','error'].includes(j.status)).length>=10}
+if(globalThis.LinkDropConvert)LinkDropConvert.init({place:'web',maxBytes:()=>limits.maxBytes,onCapabilities:c=>{limits={maxBytes:c.maxBytes||limits.maxBytes,directUploadBytes:c.directUploadBytes||limits.directUploadBytes}},
+  onSubmit(spec){
+    if(queueFull())throw Error('Queue is full. Wait for a job to finish.');
+    const id=crypto.randomUUID();
+    if(spec.kind==='upload')files.set(id,spec.file);
+    jobs.unshift({id,kind:'convert',source:spec.kind,url:spec.kind==='link'?spec.url:'',title:spec.kind==='upload'?spec.file.name:spec.url,format:spec.target,status:'queued',progress:0});
+    render();drain();
+  }});
 function drain(){while(running<2){const job=jobs.find(j=>j.status==='queued');if(!job)break;execute(job)}}
 $('download').onclick=()=>{if(!$('url').value||!$('url').reportValidity())return;$('error').textContent='';if(jobs.filter(j=>!['complete','error'].includes(j.status)).length>=10){$('error').textContent='Queue is full. Wait for a download to finish.';return}jobs.unshift({id:crypto.randomUUID(),url:$('url').value,title:metadata?.title||$('url').value,format:$('format').value,quality:$('quality').value,status:'queued',progress:0});render();drain()};
 $('clear-history').onclick=()=>{jobs=jobs.filter(j=>!['complete','error'].includes(j.status));render()};

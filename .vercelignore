@@ -7,3 +7,7 @@ downloads/
 __pycache__/
 *.pyc
 .DS_Store
+desktop/
+dist/
+build/
+requirements-desktop.txt
