@@ -79,4 +79,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" artifacts/* --repo "$GITHUB_REPOSITORY" --title "LinkDrop ${GITHUB_REF_NAME#v}" --notes "Desktop apps for macOS (Apple silicon and Intel) and Windows. The apps are not code-signed yet: on macOS, right-click LinkDrop.app and choose Open the first time; on Windows, choose More info → Run anyway in SmartScreen."
+          notes="Desktop apps for macOS (Apple silicon and Intel) and Windows. The apps are not code-signed yet: on macOS, right-click LinkDrop.app and choose Open the first time; on Windows, choose More info → Run anyway in SmartScreen."
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" artifacts/* --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" artifacts/* --repo "$GITHUB_REPOSITORY" --title "LinkDrop ${GITHUB_REF_NAME#v}" --notes "$notes"
+          fi
