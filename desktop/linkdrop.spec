@@ -10,13 +10,13 @@ VERSION = __import__('os').environ.get('LINKDROP_VERSION', '1.1.0')
 datas = [(str(ROOT / 'index.html'), '.'), (str(ROOT / 'public'), 'public')]
 binaries = []
 hiddenimports = ['server', 'lib.convert', 'lib.engine', 'lib.errors', 'lib.netguard', 'lib.storage']
-for package in ('yt_dlp', 'yt_dlp_ejs', 'imageio_ffmpeg', 'pypdfium2', 'pypdfium2_raw', 'reportlab'):
+for package in ('yt_dlp', 'yt_dlp_ejs', 'imageio_ffmpeg', 'pypdfium2', 'pypdfium2_raw'):
     try:
         d, b, h = collect_all(package)
         datas += d; binaries += b; hiddenimports += h
     except Exception:
         pass
-datas += collect_data_files('docx') + collect_data_files('openpyxl')
+datas += collect_data_files('openpyxl')
 
 a = Analysis([str(ROOT / 'desktop' / 'launcher.py')], pathex=[str(ROOT)], binaries=binaries, datas=datas,
              hiddenimports=hiddenimports, excludes=['fastapi', 'vercel', 'pandas', 'numpy', 'matplotlib'], noarchive=False)

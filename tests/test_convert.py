@@ -65,9 +65,22 @@ class ConvertTest(Fixtures):
         self.assertIn('# Head', html_md); self.assertNotIn('x{}', html_md)
         pdf = c.convert(self.tmp / 'notes.md', 'pdf', out, 'notes.md')
         self.assertIn('Hello world', c.convert(pdf, 'txt', out, 'notes3.pdf').read_text())
+        if has('docx'):  # our stdlib .docx must open in python-docx (Word-compatible structure)
+            import docx as pydocx
+            doc = pydocx.Document(str(docx))
+            self.assertEqual([p.style.name for p in doc.paragraphs][:2], ['Heading 1', 'Normal'])
+
+    def test_long_pdf_wraps_and_paginates(self):
+        from pypdf import PdfReader
+        out = self.tmp / 'wrap'; out.mkdir(exist_ok=True)
+        src = self.tmp / 'wrap.txt'; src.write_text('\n\n'.join(f'Paragraph {i} ' + 'lorem ipsum dolor sit amet ' * 30 + 'supercalifragilisticexpialidocious' * 5 for i in range(60)) + '\n\nCafé – naïve “quotes”')
+        reader = PdfReader(str(c.convert(src, 'pdf', out, 'wrap.txt')))
+        self.assertGreater(len(reader.pages), 5)
+        text = ''.join(page.extract_text() for page in reader.pages)
+        self.assertIn('Paragraph 59', text); self.assertIn('Café', text)
 
     def test_pdf_pages_to_images(self):
-        if not (has('pypdfium2') and has('reportlab')): self.skipTest('pdf libs missing')
+        if not has('pypdfium2'): self.skipTest('pypdfium2 missing')
         out = self.tmp / 'pages'; out.mkdir(exist_ok=True)
         long = self.tmp / 'long.txt'; long.write_text('\n\n'.join(f'Paragraph {i} ' * 20 for i in range(120)))
         pdf = c.convert(long, 'pdf', out, 'long.txt')

@@ -18,7 +18,7 @@ Section **3 · Convert or download any file** works in the web app and the deskt
 | Video (mp4, mkv, webm, mov, avi, m4v, flv, wmv, mpeg, 3gp, ts, ogv…) | mp4, mkv, webm, mov, avi, gif, and any audio format |
 | Audio (mp3, m4a, wav, flac, opus, ogg, aac, wma, aiff, amr…) | mp3, m4a, wav, flac, opus, ogg, aac |
 | Images (png, jpg, webp, gif, bmp, tiff, ico, tga, avif…) | png, jpg, webp, gif, bmp, tiff, ico, pdf (animated gif → mp4/webm too) |
-| PDF | txt, md, html, docx, png/jpg (one image per page; several pages come as a .zip) |
+| PDF | txt, md, html, docx; png/jpg (one image per page, several pages as a .zip) in the desktop app |
 | Word (.docx), Markdown, HTML, text | pdf, docx, html, md, txt |
 | Data (csv, tsv, json, yaml, xlsx) | csv, tsv, json, yaml, xlsx, html table, markdown table |
 | Archives (zip, tar, tar.gz, tar.bz2, tar.xz) | zip, tar, tar.gz, tar.bz2, tar.xz |

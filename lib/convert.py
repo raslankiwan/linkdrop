@@ -16,6 +16,9 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 from urllib.request import Request, urlopen
 
+try: from . import docformats
+except ImportError: import docformats  # launched as a script (hosted worker)
+
 VIDEO_IN = {'mp4','mkv','webm','mov','avi','m4v','flv','wmv','mpeg','mpg','3gp','ts','mts','m2ts','ogv','vob'}
 AUDIO_IN = {'mp3','m4a','wav','flac','opus','ogg','oga','aac','wma','aiff','aif','amr','ac3','caf','mka'}
 VIDEO_OUT = ['mp4','mkv','webm','mov','avi','gif']
@@ -98,16 +101,14 @@ def targets(ext, office=None):
         add(IMAGE_OUT)
         if ext == 'gif': add(['mp4','webm'])
     if ext in ('txt','md','markdown','html','htm'): add(DOC_OUT)
-    if ext == 'docx' and _has('docx'): add(DOC_OUT)
+    if ext == 'docx': add(DOC_OUT)
     if ext == 'pdf':
         add(['txt','md','html','docx'])
         if _has('pypdfium2'): add(['png','jpg'])
     if office and ext in OFFICE_IN: add(OFFICE_OUT[office_kind(ext)])
     if ext in DATA_IN and (ext != 'xlsx' or _has('openpyxl')): add(DATA_OUT)
     if ext in ARCHIVE_IN: add(ARCHIVE_OUT)
-    if not _has('reportlab'): out = [t for t in out if t != 'pdf' or ext in IMAGE_IN or (office and ext in OFFICE_IN)]
     if not _has('openpyxl'): out = [t for t in out if t != 'xlsx' or (office and ext in OFFICE_IN)]
-    if not _has('docx'): out = [t for t in out if t != 'docx' or (office and ext in OFFICE_IN)]
     if not _has('yaml'): out = [t for t in out if t != 'yaml']
     if not ffmpeg_path(): out = [t for t in out if t not in VIDEO_OUT + AUDIO_OUT or ext in IMAGE_IN and t == 'gif']
     return out
@@ -221,15 +222,7 @@ def read_blocks(path, ext, timeout):
     if ext in ('html', 'htm'):
         parser = _HTMLBlocks(); parser.feed(_read_text(path)); parser.flush(); return parser.blocks
     if ext == 'docx':
-        import docx
-        blocks = []
-        for para in docx.Document(str(path)).paragraphs:
-            text = para.text.strip(); style = (para.style.name if para.style is not None else '').lower()
-            if not text: continue
-            m = re.match(r'(heading|title)\s*(\d?)', style)
-            kind = 'h1' if style.startswith('title') else ('h' + str(min(3, int(m.group(2) or 1)))) if m else ('li' if 'list' in style else 'p')
-            blocks.append((kind, text))
-        return blocks
+        return docformats.read_docx(path)
     if ext == 'pdf':
         from pypdf import PdfReader
         reader = PdfReader(str(path)); blocks = []; started = time.monotonic()
@@ -293,34 +286,9 @@ def write_blocks(blocks, dst, target, title):
                 'padding:0 20px;line-height:1.6}pre{background:#f4f4f4;padding:12px;overflow:auto}</style><body>\n' + '\n'.join(body) + '\n</body></html>\n')
         return Path(dst).write_text(page, encoding='utf-8')
     if target == 'docx':
-        import docx
-        document = docx.Document()
-        for kind, text in blocks:
-            if kind in ('h1', 'h2', 'h3'): document.add_heading(text, level=int(kind[1]))
-            elif kind == 'li': document.add_paragraph(text, style='List Bullet')
-            elif kind == 'code':
-                run = document.add_paragraph().add_run(text); run.font.name = 'Courier New'
-            else: document.add_paragraph(text)
-        return document.save(str(dst))
+        return docformats.write_docx(blocks, dst, title)
     if target == 'pdf':
-        from reportlab.lib.pagesizes import A4
-        from reportlab.lib.styles import getSampleStyleSheet
-        from reportlab.lib.units import cm
-        from reportlab.platypus import ListFlowable, ListItem, Paragraph, Preformatted, SimpleDocTemplate, Spacer
-        styles = getSampleStyleSheet(); story = []; items = []
-        def flush_list():
-            if items: story.append(ListFlowable([ListItem(i) for i in items], bulletType='bullet')); items.clear()
-        for kind, text in blocks:
-            safe = html.escape(text).replace('\n', '<br/>')
-            if kind == 'li': items.append(Paragraph(safe, styles['BodyText'])); continue
-            flush_list()
-            if kind == 'code': story.append(Preformatted(text, styles['Code']))
-            else: story.append(Paragraph(safe, styles[{'h1':'Heading1','h2':'Heading2','h3':'Heading3'}.get(kind, 'BodyText')]))
-            story.append(Spacer(1, 4))
-        flush_list()
-        if not story: story.append(Paragraph('(empty document)', styles['BodyText']))
-        SimpleDocTemplate(str(dst), pagesize=A4, title=title, leftMargin=2*cm, rightMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm).build(story)
-        return
+        return docformats.write_pdf(blocks, dst, title)
     raise ConversionError('Unsupported document format.')
 
 def pdf_to_images(src, dst, target, name):
