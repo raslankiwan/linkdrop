@@ -131,7 +131,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.sendjson({'error':'Invalid host'},403)
         path=urlparse(self.path).path
         if path=='/':
-            body=(ROOT/'index.html').read_text().replace('__TOKEN__',TOKEN).encode()
+            body=(ROOT/'index.html').read_text(encoding='utf-8').replace('__TOKEN__',TOKEN).encode('utf-8')
             self.send_response(200); self.send_header('Content-Type','text/html; charset=utf-8'); self.send_header('Content-Length',str(len(body)))
             self.send_header('Cache-Control','no-store'); self.end_headers(); self.wfile.write(body)
         elif path in STATIC:
