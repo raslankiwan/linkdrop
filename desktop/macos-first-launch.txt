@@ -1,0 +1,14 @@
+If macOS says "LinkDrop" Not Opened
+====================================
+
+LinkDrop isn't signed with a paid Apple Developer ID yet, so macOS asks you to
+allow it once. After that it opens normally.
+
+1. Drag LinkDrop into Applications and double-click it. Click "Done" on the warning.
+2. Open System Settings > Privacy & Security.
+3. Scroll down to the message about "LinkDrop" and click "Open Anyway".
+4. Confirm with your password or Touch ID, then click "Open Anyway" again.
+
+Alternative (Terminal, one line):
+
+    xattr -dr com.apple.quarantine /Applications/LinkDrop.app

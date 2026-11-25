@@ -43,11 +43,26 @@ jobs:
         run: |
           python desktop/make_icon.py build/icon
           pyinstaller desktop/linkdrop.spec --noconfirm --distpath dist --workpath build/pyinstaller
+      - name: Smoke-test the macOS app
+        if: runner.os == 'macOS'
+        run: LINKDROP_SMOKE=1 dist/LinkDrop.app/Contents/MacOS/LinkDrop
       - name: Package macOS disk image
         if: runner.os == 'macOS'
         run: |
+          # Ad-hoc signature keeps the bundle intact on Apple silicon; without an Apple Developer ID,
+          # macOS still asks the user to allow the app once (see "If macOS blocks LinkDrop.txt").
+          codesign --force --deep --sign - dist/LinkDrop.app
+          codesign --verify --deep --strict dist/LinkDrop.app
           mkdir -p build/dmg && cp -R dist/LinkDrop.app build/dmg/ && ln -s /Applications build/dmg/Applications
+          cp desktop/macos-first-launch.txt "build/dmg/If macOS blocks LinkDrop.txt"
           hdiutil create -volname LinkDrop -srcfolder build/dmg -ov -format UDZO "dist/LinkDrop-${LINKDROP_VERSION}-${{ matrix.name }}.dmg"
+      - name: Smoke-test the Windows app
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:LINKDROP_SMOKE = '1'
+          $p = Start-Process -FilePath dist\LinkDrop\LinkDrop.exe -Wait -PassThru -NoNewWindow
+          if ($p.ExitCode -ne 0) { throw "Smoke test failed with exit code $($p.ExitCode)" }
       - name: Package Windows installer
         if: runner.os == 'Windows'
         shell: pwsh
@@ -79,7 +94,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          notes="Desktop apps for macOS (Apple silicon and Intel) and Windows. The apps are not code-signed yet: on macOS, right-click LinkDrop.app and choose Open the first time; on Windows, choose More info → Run anyway in SmartScreen."
+          notes="LinkDrop desktop apps for macOS (Apple silicon and Intel) and Windows: a standalone app with its own window. Not code-signed yet. macOS: open the app once, click Done, then System Settings > Privacy & Security > Open Anyway (instructions are inside the disk image). Windows: choose More info > Run anyway in SmartScreen."
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" artifacts/* --repo "$GITHUB_REPOSITORY" --clobber
           else

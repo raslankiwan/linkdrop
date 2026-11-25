@@ -11,3 +11,6 @@
 .convert-row{margin-top:16px}
 .download:disabled{cursor:not-allowed}
 .drop:focus-visible,.modes button:focus-visible{outline:3px solid #a3c64a;outline-offset:3px}
+.job-actions{display:flex;gap:6px;flex-shrink:0}
+.job-actions button{border:1px solid #dce2d6;background:#fff;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;color:#26392c;cursor:pointer}
+.job-actions button:hover{background:#f3f7e7;border-color:#a3c64a}

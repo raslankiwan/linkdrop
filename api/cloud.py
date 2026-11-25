@@ -79,18 +79,26 @@ async def convert(request):
         if len(body)>DIRECT_UPLOAD_BYTES: raise ValueError('Upload too large for a direct request.')
     else:
         raw=await request.body()
-        if len(raw)>8192: raise ValueError('Request too large.')
+        if len(raw)>65536: raise ValueError('Request too large.')
         payload=json.loads(raw); body=None
-        url=payload.get('sourceUrl')
-        if payload.get('source')=='upload' and not (isinstance(url,str) and urlparse(url).scheme=='https' and (urlparse(url).hostname or '').endswith('.blob.vercel-storage.com')):
-            raise ValueError('Invalid upload reference.')
-        public_url(url)
-        data={'sourceUrl':url,'target':payload.get('target',''),'filename':Path(str(payload.get('filename') or '')).name[:160] or None}
+        name=Path(str(payload.get('filename') or '')).name[:160] or None
+        if payload.get('source')=='upload':
+            # Parts uploaded through /api/upload: only presigned URLs on Vercel Blob are accepted.
+            urls=payload.get('sourceUrls')
+            if not isinstance(urls,list) or not 1<=len(urls)<=50: raise ValueError('Invalid upload reference.')
+            for url in urls:
+                parsed=urlparse(url) if isinstance(url,str) else None
+                if not parsed or parsed.scheme!='https' or not (parsed.hostname or '').endswith('.blob.vercel-storage.com'): raise ValueError('Invalid upload reference.')
+            data={'sourceUrls':urls,'target':payload.get('target',''),'filename':name}
+        else:
+            url=payload.get('sourceUrl')
+            public_url(url)
+            data={'sourceUrl':url,'target':payload.get('target',''),'filename':name}
     target=str(data['target'] or '').lower()
     if target!='original':
         ext=converter.extension(data.get('filename') or '')
         if ext and target not in converter.targets(ext): raise ValueError(f'Converting .{ext} to .{target} is not supported here.')
-        if not ext and data.get('sourceUrl') is None: raise ValueError('The file needs an extension so its type can be detected.')
+        if not ext and not data.get('sourceUrl'): raise ValueError('The file needs an extension so its type can be detected.')
     data.update(target=target,maxBytes=MAX_BYTES,timeout=225)
     return stream(data,'convert.py',body)
 

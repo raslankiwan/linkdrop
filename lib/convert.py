@@ -258,10 +258,15 @@ def _md_blocks(text):
 
 def _read_text(path):
     raw = Path(path).read_bytes()
-    for encoding in ('utf-8-sig', 'utf-16') if raw[:2] in (b'\xff\xfe', b'\xfe\xff') else ('utf-8-sig', 'cp1252', 'latin-1'):
-        try: return raw.decode(encoding)
-        except UnicodeDecodeError: continue
-    return raw.decode('utf-8', 'replace')
+    if raw[:2] in (b'\xff\xfe', b'\xfe\xff'): return raw.decode('utf-16')
+    try: return raw.decode('utf-8-sig')
+    except UnicodeDecodeError: pass
+    # Legacy Windows files: Arabic (1256) vs Western (1252). Arabic letters dominate 1256 decodes of Arabic text.
+    arabic_text = raw.decode('cp1256', 'replace')
+    high = [ch for ch in arabic_text if ord(ch) > 127]
+    if high and sum(0x0600 <= ord(ch) <= 0x06FF for ch in high) / len(high) > 0.6: return arabic_text
+    try: return raw.decode('cp1252')
+    except UnicodeDecodeError: return raw.decode('latin-1')
 
 def write_blocks(blocks, dst, target, title):
     if target == 'txt':
@@ -279,11 +284,11 @@ def write_blocks(blocks, dst, target, title):
             if kind == 'li' and not in_list: body.append('<ul>'); in_list = True
             if kind != 'li' and in_list: body.append('</ul>'); in_list = False
             tag = {'code':'pre'}.get(kind, kind)
-            body.append(f'<{tag}>{html.escape(text)}</{tag}>')
+            body.append(f'<{tag} dir="auto">{html.escape(text)}</{tag}>')
         if in_list: body.append('</ul>')
-        page = ('<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+        page = ('<!doctype html><html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
                 f'<title>{html.escape(title)}</title><style>body{{font-family:system-ui,sans-serif;max-width:760px;margin:40px auto;'
-                'padding:0 20px;line-height:1.6}pre{background:#f4f4f4;padding:12px;overflow:auto}</style><body>\n' + '\n'.join(body) + '\n</body></html>\n')
+                'padding:0 20px;line-height:1.6}pre{background:#f4f4f4;padding:12px;overflow:auto}[dir=rtl],:dir(rtl){text-align:right}</style><body>\n' + '\n'.join(body) + '\n</body></html>\n')
         return Path(dst).write_text(page, encoding='utf-8')
     if target == 'docx':
         return docformats.write_docx(blocks, dst, title)
@@ -371,7 +376,7 @@ def _records(rows):
 
 def write_rows(rows, dst, target, title):
     if target in ('csv', 'tsv'):
-        with open(dst, 'w', newline='', encoding='utf-8') as out:
+        with open(dst, 'w', newline='', encoding='utf-8-sig') as out:  # BOM: Excel then reads Arabic and other non-Latin text correctly
             csv.writer(out, 'excel-tab' if target == 'tsv' else 'excel').writerows(rows)
         return
     if target == 'json':
@@ -381,15 +386,18 @@ def write_rows(rows, dst, target, title):
         return Path(dst).write_text(yaml.safe_dump(_records(rows), allow_unicode=True, sort_keys=False, default_flow_style=False), encoding='utf-8')
     if target == 'xlsx':
         import openpyxl
-        book = openpyxl.Workbook(write_only=True); sheet = book.create_sheet(title[:31] or 'Sheet1')
+        book = openpyxl.Workbook(write_only=True); sheet = book.create_sheet(re.sub(r'[\\/*?:\[\]]', '_', title)[:31] or 'Sheet1')
+        sample = ''.join(str(v) for row in rows[:50] for v in row)
+        if sum(0x0600 <= ord(ch) <= 0x06FF for ch in sample) > len(re.sub(r'[^A-Za-z]', '', sample)):
+            sheet.sheet_view.rightToLeft = True  # Arabic spreadsheets read right to left
         for row in rows: sheet.append([v if isinstance(v, (int, float, bool)) or v is None else str(v) for v in row])
         return book.save(str(dst))
     if target == 'html':
         cells = lambda row, tag: ''.join(f'<{tag}>{html.escape(str(v))}</{tag}>' for v in row)
         body = (f'<thead><tr>{cells(rows[0], "th")}</tr></thead>' if rows else '') + '<tbody>' + ''.join(f'<tr>{cells(r, "td")}</tr>' for r in rows[1:]) + '</tbody>'
-        return Path(dst).write_text(f'<!doctype html><html lang="en"><meta charset="utf-8"><title>{html.escape(title)}</title>'
+        return Path(dst).write_text(f'<!doctype html><html><meta charset="utf-8"><title>{html.escape(title)}</title>'
                                     '<style>table{border-collapse:collapse;font-family:system-ui,sans-serif}td,th{border:1px solid #ccc;padding:4px 8px}</style>'
-                                    f'<table>{body}</table></html>\n', encoding='utf-8')
+                                    f'<table dir="auto">{body}</table></html>\n', encoding='utf-8')
     if target == 'md':
         if not rows: return Path(dst).write_text('', encoding='utf-8')
         width = max(len(r) for r in rows)
@@ -494,6 +502,7 @@ def fetch(url, outdir, max_bytes, guard=True, progress=None):
         declared = int(response.headers.get('Content-Length') or 0)
         if max_bytes and declared > max_bytes:
             raise ConversionError(f'This file is larger than the {max_bytes // 1048576} MB limit.')
+        Path(outdir).mkdir(parents=True, exist_ok=True)
         path = Path(outdir) / ('source.' + (extension(name) or 'bin')); done = 0; last = 0
         with open(path, 'wb') as out:
             while True:
@@ -518,7 +527,18 @@ def main():
     folder = Path(data['folder']); max_bytes = int(data.get('maxBytes') or 0)
     if data.get('action') == 'capabilities':
         return emit(capabilities())
-    if data.get('sourceUrl'):
+    if data.get('sourceUrls'):  # an upload sent in parts: join them in order
+        name = data.get('filename') or 'file'
+        source = folder / ('source.' + (extension(name) or 'bin')); total = 0
+        with open(source, 'wb') as out:
+            for index, url in enumerate(data['sourceUrls']):
+                part, _ = fetch(url, folder / 'parts', max_bytes, guard=data.get('guard', True))
+                total += part.stat().st_size
+                if max_bytes and total > max_bytes: raise ConversionError(f'This file is larger than the {max_bytes // 1048576} MB limit.')
+                with open(part, 'rb') as chunk: shutil.copyfileobj(chunk, out)
+                part.unlink()
+                emit({'status':'downloading','progress':round((index + 1) / len(data['sourceUrls']) * 100, 1)})
+    elif data.get('sourceUrl'):
         def progress(done, total): emit({'status':'downloading','progress':round(done / total * 100, 1) if total else 0})
         emit({'status':'downloading','progress':0})
         source, name = fetch(data['sourceUrl'], folder, max_bytes, guard=data.get('guard', True), progress=progress)

@@ -14,7 +14,7 @@ function render(){
   persist();$('count').textContent=jobs.length?'('+jobs.length+')':'';
   $('clear-history').disabled=!jobs.some(j=>['complete','error'].includes(j.status));
   if(!jobs.length){$('jobs').innerHTML='<div class="empty">Nothing here yet. Your next great find goes here.</div>';return}
-  $('jobs').innerHTML=jobs.map(j=>`<article class="job"><div class="jobtop"><div class="fileicon">${j.kind==='convert'?(j.format==='original'?'↓':'⇄'):AUDIO.includes(j.format)?'♫':'▷'}</div><div class="jobinfo"><div class="title">${escape(j.title)}</div><div class="status">${escape(j.format==='original'?'FILE':String(j.format).toUpperCase())} · ${escape(({processing:j.kind==='convert'?'Converting…':'Converting / merging…','uploading file':'Uploading your file…',uploading:'Securing your file…',complete:j.autoSaveRequested?'Download requested':'Ready'})[j.status]||j.status)}${['downloading','uploading file'].includes(j.status)?' · '+(j.progress||0)+'%':''}${j.size?' · '+(j.size/1048576).toFixed(1)+' MB':''}</div></div>${j.status==='complete'&&typeof j.fileUrl==='string'&&j.fileUrl.startsWith('/api/file?ticket=')?`<a class="retry-save" href="${escape(j.fileUrl)}">Download again ↓</a>`:''}</div>${j.error?`<div class="error">${escape(j.error)}${youtubeBlocked(j.error,j.code)?recovery(j.url,j.format,j.quality):''}</div>`:''}${!['complete','error','queued'].includes(j.status)?`<div class="bar"><i style="width:${Math.max(3,Math.min(100,j.progress||0))}%"></i></div>`:''}</article>`).join('');
+  $('jobs').innerHTML=jobs.map(j=>`<article class="job"><div class="jobtop"><div class="fileicon">${j.kind==='convert'?(j.format==='original'?'↓':'⇄'):AUDIO.includes(j.format)?'♫':'▷'}</div><div class="jobinfo"><div class="title" dir="auto">${escape(j.title)}</div><div class="status">${escape(j.format==='original'?'FILE':String(j.format).toUpperCase())} · ${escape(({processing:j.kind==='convert'?'Converting…':'Converting / merging…','uploading file':'Uploading your file…',uploading:'Securing your file…',complete:j.autoSaveRequested?'Download requested':'Ready'})[j.status]||j.status)}${['downloading','uploading file'].includes(j.status)?' · '+(j.progress||0)+'%':''}${j.size?' · '+(j.size/1048576).toFixed(1)+' MB':''}</div></div>${j.status==='complete'&&typeof j.fileUrl==='string'&&j.fileUrl.startsWith('/api/file?ticket=')?`<a class="retry-save" href="${escape(j.fileUrl)}">Download again ↓</a>`:''}</div>${j.error?`<div class="error">${escape(j.error)}${youtubeBlocked(j.error,j.code)?recovery(j.url,j.format,j.quality):''}</div>`:''}${!['complete','error','queued'].includes(j.status)?`<div class="bar"><i style="width:${Math.max(3,Math.min(100,j.progress||0))}%"></i></div>`:''}</article>`).join('');
 }
 async function api(path,data){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const j=await r.json();if(!r.ok){const e=Error(j.error||'Request failed');e.code=j.code;throw e}return j}
 $('url').addEventListener('input',()=>{metadata=null;$('meta').hidden=true});
@@ -32,27 +32,39 @@ async function execute(job){
     pending+=decoder.decode();if(pending.trim())consume(pending);
     if(!terminal)throw Error('Connection ended before completion. Try lower quality, or use the local app for large files.');
   }catch(e){job.status='error';job.error=e.message}
-  finally{running--;files.delete(job.id);if(job.uploadPath){fetch('/api/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'delete',pathname:job.uploadPath})}).catch(()=>{});delete job.uploadPath}render();drain()}
+  finally{running--;files.delete(job.id);if(job.upload){fetch('/api/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'delete',...job.upload})}).catch(()=>{});delete job.upload}render();drain()}
 }
 // File conversion: small files go straight to the converter; larger ones upload
-// directly to private Blob storage first (function request bodies max out at 4.5 MB).
+// in parts first (function request bodies max out at 4.5 MB).
 const files=new Map();let limits={maxBytes:200*1048576,directUploadBytes:4*1048576};
 function hex(){return crypto.randomUUID().replace(/-/g,'')}
-function blobName(name){const ext=LinkDropConvert.extension(name)||'bin';const base=name.replace(/\.(tar\.(gz|bz2|xz)|[^.]+)$/i,'').replace(/[^A-Za-z0-9._-]+/g,'-').replace(/^[-._]+|[-._]+$/g,'').slice(0,80)||'file';return base+'.'+ext}
 async function convertRequest(job){
   const post=body=>fetch('/api/convert',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(job.source==='link')return post({source:'link',sourceUrl:job.url,target:job.format});
   const file=files.get(job.id);if(!file)throw Error('The page was reloaded before this file was sent. Choose the file again.');
   if(file.size<=limits.directUploadBytes)return fetch('/api/convert',{method:'POST',headers:{'Content-Type':'application/octet-stream','X-Filename':encodeURIComponent(file.name),'X-Target':job.format},body:file});
+  // Larger files: upload in 4 MB parts to LinkDrop itself (same origin, so no CORS), three at a time.
   job.status='uploading file';job.progress=0;render();
-  let client;try{client=await import('https://esm.sh/@vercel/blob@2.8.2/client')}catch{throw Error('Could not load the uploader. Check your connection and try again.')}
-  const pathname=`uploads/${hex()}/${blobName(file.name)}`;
-  await client.upload(pathname,file,{access:'private',handleUploadUrl:'/api/upload',multipart:file.size>32*1048576,onUploadProgress:e=>{job.progress=Math.round(e.percentage||0);render()}});
-  job.uploadPath=pathname;
-  const signed=await fetch('/api/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'source',pathname})});
+  const id=hex(),size=4000000,parts=Math.ceil(file.size/size);let sent=0,next=0;
+  async function worker(){
+    while(next<parts){
+      const part=next++;
+      for(let attempt=0;;attempt++){
+        try{
+          const r=await fetch(`/api/upload?id=${id}&part=${part}`,{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:file.slice(part*size,(part+1)*size)});
+          if(!r.ok)throw Error((await r.json().catch(()=>({}))).error||'Upload failed.');
+          break;
+        }catch(e){if(attempt>=2)throw e;await new Promise(done=>setTimeout(done,1000*(attempt+1)))}
+      }
+      sent++;job.progress=Math.round(sent/parts*100);render();
+    }
+  }
+  await Promise.all(Array.from({length:Math.min(3,parts)},worker));
+  job.upload={id,parts};
+  const signed=await fetch('/api/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'source',id,parts})});
   const source=await signed.json();if(!signed.ok)throw Error(source.error||'Upload failed.');
   job.status='starting';render();
-  return post({source:'upload',sourceUrl:source.url,filename:file.name,target:job.format});
+  return post({source:'upload',sourceUrls:source.urls,filename:file.name,target:job.format});
 }
 function queueFull(){return jobs.filter(j=>!['complete','error'].includes(j.status)).length>=10}
 if(globalThis.LinkDropConvert)LinkDropConvert.init({place:'web',maxBytes:()=>limits.maxBytes,onCapabilities:c=>{limits={maxBytes:c.maxBytes||limits.maxBytes,directUploadBytes:c.directUploadBytes||limits.directUploadBytes}},
