@@ -5,12 +5,13 @@ from pathlib import Path
 from PyInstaller.utils.hooks import collect_all, collect_data_files
 
 ROOT = Path(SPECPATH).parent
-VERSION = __import__('os').environ.get('LINKDROP_VERSION', '1.1.0')
+VERSION = __import__('os').environ.get('LINKDROP_VERSION', '1.2.0')
 
-datas = [(str(ROOT / 'index.html'), '.'), (str(ROOT / 'public'), 'public')]
+datas = [(str(ROOT / 'index.html'), '.'), (str(ROOT / 'public'), 'public'), (str(ROOT / 'lib' / 'fonts'), 'lib/fonts')]
 binaries = []
-hiddenimports = ['server', 'lib.convert', 'lib.engine', 'lib.errors', 'lib.netguard', 'lib.storage']
-for package in ('yt_dlp', 'yt_dlp_ejs', 'imageio_ffmpeg', 'pypdfium2', 'pypdfium2_raw'):
+hiddenimports = ['server', 'lib.convert', 'lib.engine', 'lib.errors', 'lib.netguard', 'lib.storage', 'lib.docformats', 'lib.arabic']
+if sys.platform == 'win32': hiddenimports += ['clr', 'clr_loader', 'pythonnet']
+for package in ('yt_dlp', 'yt_dlp_ejs', 'imageio_ffmpeg', 'pypdfium2', 'pypdfium2_raw', 'webview'):
     try:
         d, b, h = collect_all(package)
         datas += d; binaries += b; hiddenimports += h

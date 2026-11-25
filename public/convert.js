@@ -41,7 +41,7 @@
       }
       if(!file){fill('');drop.querySelector('.drop-label').innerHTML='<b>Drop a file here</b> or <u>browse</u>';hint.textContent=summary();return}
       const ext=extension(file.name);
-      drop.querySelector('.drop-label').innerHTML=`<b>${escapeHtml(file.name)}</b> · ${mb(file.size)} <u>change</u>`;
+      drop.querySelector('.drop-label').innerHTML=`<b dir="auto">${escapeHtml(file.name)}</b> · ${mb(file.size)} <u>change</u>`;
       if(file.size>options.maxBytes()){fill('');hint.textContent='';setError(`This file is ${mb(file.size)}. The limit here is ${mb(options.maxBytes())}.${options.place==='web'?' Use the desktop app for larger files.':''}`);go.disabled=true;return}
       fill(ext);
       hint.textContent=(caps.formats[ext]||[]).length?'Choose the format you want.':`.${ext||'?'} files can't be converted ${options.place==='web'?'on the web':'here'} yet.${!caps.office&&['doc','odt','rtf','pptx','ppt','odp','xls','ods','pages','key','numbers','epub'].includes(ext)?' Office formats need the desktop app with LibreOffice installed.':''}`;

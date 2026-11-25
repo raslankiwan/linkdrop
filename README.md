@@ -24,7 +24,9 @@ Section **3 · Convert or download any file** works in the web app and the deskt
 | Archives (zip, tar, tar.gz, tar.bz2, tar.xz) | zip, tar, tar.gz, tar.bz2, tar.xz |
 | Office (doc, odt, rtf, pptx, ppt, odp, xls, ods, pages, key, numbers, epub) | pdf and the matching Office/OpenDocument formats — **desktop app only, when [LibreOffice](https://www.libreoffice.org/download/) is installed** |
 
-Web limits: 200 MB per file and about 4 minutes per job. Files up to 4 MB are sent straight to the converter; larger uploads go directly from the browser to private Blob storage and are deleted after conversion (the daily cleanup also removes anything older than 24 hours). The desktop app handles files up to 4 GB with no time limit and saves results in `Downloads/LinkDrop`. Docx/HTML → PDF on the web keeps the text structure (headings, paragraphs, lists), not exact page layout; install LibreOffice and use the desktop app for layout-faithful Office → PDF.
+Arabic (and Hebrew, Greek, Cyrillic) text is supported in converted documents: PDFs embed DejaVu fonts with Arabic letter shaping and right-to-left lines, Word and HTML output use right-to-left paragraphs, CSV/TSV output includes a UTF-8 BOM so Excel shows Arabic correctly, and legacy Windows-1256 Arabic text files are detected on input.
+
+Web limits: 200 MB per file and about 4 minutes per job. Files up to 4 MB are sent straight to the converter; larger uploads are sent to LinkDrop in 4 MB parts (all same-origin, so no CORS), stored in private Blob storage and deleted after conversion (the daily cleanup also removes anything older than 24 hours). The desktop app handles files up to 4 GB with no time limit and saves results in `Downloads/LinkDrop`. Docx/HTML → PDF on the web keeps the text structure (headings, paragraphs, lists), not exact page layout; install LibreOffice and use the desktop app for layout-faithful Office → PDF.
 
 ## Hosted web app
 
@@ -54,7 +56,9 @@ The cloud app cannot use a visitor's local browser cookies or guarantee access t
 
 ## Desktop app (macOS and Windows)
 
-Install from the [latest release](https://github.com/raslankiwan/linkdrop/releases/latest). The app opens LinkDrop in your browser at http://127.0.0.1:8765 and shows a small window with **Open LinkDrop**, **Open downloads folder** and **Quit**. The builds are not code-signed yet: on macOS, right-click LinkDrop.app → **Open** the first time; on Windows, choose **More info → Run anyway** in SmartScreen.
+Install from the [latest release](https://github.com/raslankiwan/linkdrop/releases/latest). LinkDrop runs as a standalone app in its own window (WebKit on macOS, Edge WebView2 on Windows); no browser is needed. Finished files are saved in `Downloads/LinkDrop`, and each one has **Show in Finder/folder** and **Open** buttons. If a native window can't be created (for example WebView2 missing on an old Windows install), it falls back to your browser.
+
+The builds are not code-signed yet. **macOS:** open LinkDrop once and click **Done** on the warning, then go to **System Settings → Privacy & Security** and click **Open Anyway** (or run `xattr -dr com.apple.quarantine /Applications/LinkDrop.app`). **Windows:** choose **More info → Run anyway** in SmartScreen.
 
 Releases are built by `.github/workflows/desktop.yml` with PyInstaller (`desktop/linkdrop.spec`) and Inno Setup (`desktop/installer.iss`). Push a tag such as `v1.1.0` to publish a new release, or run the workflow manually to get the builds as artifacts.
 

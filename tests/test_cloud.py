@@ -74,7 +74,7 @@ class CloudConvertTests(unittest.TestCase):
         self.assertEqual(r.status_code, 400); self.assertIn('not supported', r.content['error'])
         r = self.call(FakeRequest('/api/convert', b'x', {'Content-Type': 'application/octet-stream', 'X-Filename': 'a.txt', 'X-Target': 'pdf', 'Origin': 'https://evil.test'}))
         self.assertEqual(r.status_code, 403)
-        body = json.dumps({'source': 'upload', 'sourceUrl': 'https://example.com/a.csv', 'filename': 'a.csv', 'target': 'json'}).encode()
+        body = json.dumps({'source': 'upload', 'sourceUrls': ['https://example.com/a.csv'], 'filename': 'a.csv', 'target': 'json'}).encode()
         r = self.call(FakeRequest('/api/convert', body, {'Content-Type': 'application/json'}))
         self.assertEqual(r.status_code, 400); self.assertIn('Invalid upload', r.content['error'])
         body = json.dumps({'source': 'link', 'sourceUrl': 'http://169.254.169.254/latest', 'target': 'original'}).encode()

@@ -95,7 +95,7 @@ class ConvertTest(Fixtures):
         rows = json.loads(c.convert(self.tmp / 'table.csv', 'json', out, 'table.csv').read_text())
         self.assertEqual(rows[1], {'name': 'Lin', 'age': '4,2'})
         xlsx = c.convert(self.tmp / 'list.json', 'xlsx', out, 'list.json')
-        back = c.convert(xlsx, 'csv', out, 'list2.xlsx').read_text().splitlines()
+        back = c.convert(xlsx, 'csv', out, 'list2.xlsx').read_text(encoding='utf-8-sig').splitlines()
         self.assertEqual(back[0], 'a,b,c'); self.assertIn('"{""x"": 2}"', back[1])
 
     def test_images(self):
@@ -145,6 +145,41 @@ class ConvertTest(Fixtures):
         self.assertEqual(c.filename_from('https://x.test/dl', {'Content-Disposition': "attachment; filename*=UTF-8''r%C3%A9sum%C3%A9.docx"}), 'résumé.docx')
         self.assertEqual(c.filename_from('https://x.test/', {'Content-Type': 'application/pdf'}), 'download.pdf')
 
+class ArabicTest(Fixtures):
+    def test_shaping_and_order(self):
+        from lib import arabic
+        self.assertEqual(arabic.shape('سلام'), '\ufeb3\ufefc\ufee1')  # initial seen, lam-alef final, isolated meem
+        self.assertEqual(arabic.shape('لا'), '\ufefb')
+        self.assertEqual(arabic.visual(arabic.shape('عام 2026'), 'rtl'), '2026 ' + arabic.shape('عام')[::-1])
+        self.assertEqual(arabic.visual('abc', 'ltr'), 'abc')
+        self.assertEqual(arabic.base_direction('مرحبا world'), 'rtl'); self.assertEqual(arabic.base_direction('Hi مرحبا'), 'ltr')
+
+    def test_arabic_documents(self):
+        import unicodedata
+        from pypdf import PdfReader
+        out = self.tmp / 'ar'; out.mkdir(exist_ok=True)
+        src = self.tmp / 'ar.md'; src.write_text('# تقرير\n\nمرحبا بكم في لينك دروب 2026.\n\n- بند أول\n', encoding='utf-8')
+        pdf = c.convert(src, 'pdf', out, 'تقرير.md')
+        self.assertEqual(pdf.name, 'تقرير.pdf')
+        text = unicodedata.normalize('NFKC', PdfReader(str(pdf)).pages[0].extract_text())
+        for word in ('تقرير', 'مرحبا', 'بند'): self.assertIn(word, text)
+        docx = c.convert(src, 'docx', out, 'ar.md')
+        xml = zipfile.ZipFile(docx).read('word/document.xml').decode()
+        self.assertIn('<w:bidi/>', xml); self.assertIn('مرحبا بكم', xml)
+        self.assertIn('dir="auto"', c.convert(src, 'html', out, 'ar.md').read_text(encoding='utf-8'))
+        latin = c.convert(self.tmp / 'notes.md', 'pdf', out, 'notes.md')
+        self.assertLess(latin.stat().st_size, 20_000)  # Latin-only PDFs stay small (no embedded fonts)
+
+    def test_legacy_arabic_csv_and_excel_bom(self):
+        out = self.tmp / 'arcsv'; out.mkdir(exist_ok=True)
+        src = self.tmp / 'old.csv'; src.write_bytes('الاسم,المدينة\nأحمد,نابلس\n'.encode('cp1256'))
+        rows = json.loads(c.convert(src, 'json', out, 'old.csv').read_text(encoding='utf-8'))
+        self.assertEqual(rows, [{'الاسم': 'أحمد', 'المدينة': 'نابلس'}])
+        csv_out = c.convert(c.convert(src, 'xlsx', out, 'old.csv'), 'csv', out, 'old2.xlsx')
+        self.assertTrue(csv_out.read_bytes().startswith(b'\xef\xbb\xbf'))
+        western = self.tmp / 'w.csv'; western.write_bytes('name,city\nJosé,Zürich\n'.encode('cp1252'))
+        self.assertIn('Zürich', c.convert(western, 'json', out, 'w.csv').read_text(encoding='utf-8'))
+
 class FetchTest(unittest.TestCase):
     def test_private_links_blocked(self):
         with tempfile.TemporaryDirectory() as d:
@@ -168,6 +203,13 @@ class FetchTest(unittest.TestCase):
                     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
                     self.assertEqual(events[-1]['filename'], 'data.json')
                     self.assertEqual(json.loads(Path(events[-1]['path']).read_text()), [{'a': '1', 'b': '2'}])
+                    parts = {'sourceUrls': [f'http://127.0.0.1:{server.server_port}/p1', f'http://127.0.0.1:{server.server_port}/p2'],
+                             'filename': 'joined.csv', 'target': 'json', 'folder': work, 'maxBytes': 10_000, 'guard': False}
+                    Path(site, 'p1').write_bytes(b'x,y\n1,'); Path(site, 'p2').write_bytes(b'2\n')
+                    proc = subprocess.run([sys.executable, str(ROOT / 'lib' / 'convert.py')], input=json.dumps(parts) + '\n',
+                                          capture_output=True, text=True, timeout=60)
+                    last = json.loads(proc.stdout.splitlines()[-1])
+                    self.assertEqual(json.loads(Path(last['path']).read_text()), [{'x': '1', 'y': '2'}], proc.stdout)
                     req.update(target='original', maxBytes=3)
                     proc = subprocess.run([sys.executable, str(ROOT / 'lib' / 'convert.py')], input=json.dumps(req) + '\n',
                                           capture_output=True, text=True, timeout=60)

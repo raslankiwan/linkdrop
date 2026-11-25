@@ -100,6 +100,20 @@ def run_convert(jid, data):
         except Exception as e:
             update(jid, status='error', error=str(e)[:1200] or e.__class__.__name__, code='CONVERT_FAILED')
 
+def reveal(jid, open_file=False):
+    """Show a finished file in Finder/Explorer, or open it with its default app (desktop app)."""
+    import subprocess
+    with LOCK: job=dict(JOBS.get(jid,{}))
+    if job.get('status')!='complete': raise ValueError('File unavailable.')
+    file=(DATA/jid/job['filename']).resolve()
+    if DATA.resolve() not in file.parents or not file.is_file(): raise ValueError('The file was moved or deleted.')
+    if sys.platform=='darwin': subprocess.Popen(['open',str(file)] if open_file else ['open','-R',str(file)])
+    elif os.name=='nt':
+        if open_file: os.startfile(str(file))  # type: ignore[attr-defined]
+        else: subprocess.Popen(['explorer','/select,',str(file)])
+    else: subprocess.Popen(['xdg-open',str(file if open_file else file.parent)])
+    return {'ok':True}
+
 def new_job(title, fmt, kind='download'):
     with LOCK:
         if sum(j['status'] not in ('complete','error') for j in JOBS.values())>=10: raise ValueError('Queue is full. Wait for a job to finish.')
@@ -117,7 +131,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.sendjson({'error':'Invalid host'},403)
         path=urlparse(self.path).path
         if path=='/':
-            body=(ROOT/'index.html').read_text().replace('__TOKEN__',TOKEN).encode()
+            body=(ROOT/'index.html').read_text(encoding='utf-8').replace('__TOKEN__',TOKEN).encode('utf-8')
             self.send_response(200); self.send_header('Content-Type','text/html; charset=utf-8'); self.send_header('Content-Length',str(len(body)))
             self.send_header('Cache-Control','no-store'); self.end_headers(); self.wfile.write(body)
         elif path in STATIC:
@@ -126,7 +140,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header('Content-Length',str(len(body))); self.send_header('Cache-Control','no-store')
             self.end_headers(); self.wfile.write(body)
         elif path=='/api/capabilities':
-            self.sendjson({**converter.capabilities(),'maxBytes':MAX_UPLOAD,'downloads':str(DATA)})
+            self.sendjson({**converter.capabilities(),'maxBytes':MAX_UPLOAD,'downloads':str(DATA),'platform':sys.platform})
         elif path=='/api/jobs':
             with LOCK: jobs=[dict(j, id=k) for k,j in JOBS.items()]
             self.sendjson({'jobs':jobs[::-1]})
@@ -152,6 +166,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.upload(length)
             if length>8192: raise ValueError('Request too large')
             data=json.loads(self.rfile.read(length))
+            if self.path=='/api/reveal':
+                return self.sendjson(reveal(str(data.get('id','')), bool(data.get('open'))))
             if self.path=='/api/history/clear':
                 with LOCK:
                     finished=[key for key,job in JOBS.items() if job['status'] in ('complete','error')]
